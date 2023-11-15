@@ -1,7 +1,7 @@
 import { LinearRequest } from "./linear-request";
 import { LinearResponse } from "./linear-response";
 import { LinearRoute } from "./linear-route";
-import { ILinearState } from "./linear-state";
+import { ILinearState, LevelResponse } from "./linear-state";
 
 export class LinearOriginator {
     constructor(
@@ -9,8 +9,8 @@ export class LinearOriginator {
     ) { }
 
     async discover(): Promise<LinearRoute[]> {
-        for (var i = 0; i <= this.state.options.maxDepth; i++) {
-            if (!await this.advance()) {
+        for (var i = 1; i <= this.state.options.maxDepth; i++) {
+            if (!await this.advance(i)) {
                 break;
             }
             var routes = this.state.getRoutes();
@@ -21,18 +21,16 @@ export class LinearOriginator {
         return [];
     }
 
-    private async advance(): Promise<boolean> {
+    private async advance(depth: number): Promise<boolean> {
+        await this.state.startDepth(depth);
+
         if (!this.requestFromAllAdvancable()) {
             return false;
         }
 
-        const responses = await this.waitForCriticalOrTimeout();
+        const responses = await this.waitForCriticalOrTimeout(depth);
 
-        Object.entries(responses.failures).forEach(([address, error]) => 
-            this.state.addFailure(address, error));
-
-        Object.entries(responses.results).forEach(([address, response]) => 
-            this.state.addResponse(address, response));
+        await this.state.completeDepth(responses);
 
         return true;
     }
@@ -48,20 +46,20 @@ export class LinearOriginator {
         return anyQueued;
     }
 
-    private async waitForCriticalOrTimeout() {
+    private async waitForCriticalOrTimeout(baseTime: number) {
         const startTime = Date.now();
-        const results: LinearResponse[] = [];
+        const responses: LinearResponse[] = [];
         const failures: Record<string, string> = {};
 
         // A promise that resolves after a minimum time
-        const minTimePromise = new Promise(resolve => setTimeout(resolve, this.state.options.minTime));
+        const minTimePromise = new Promise(resolve => setTimeout(resolve, baseTime + this.state.options.minTime));
 
         // Map each request to a promise
         const promises = Object.entries(this.state.getOutstanding()).map(async ([address, val]) => {
             try {
                 const response = await val.response;
                 const linearResponse = new LinearResponse(address, val.depth, response.paths, response.hiddenData);
-                results.push(linearResponse);
+                responses.push(linearResponse);
                 return linearResponse;
             } catch (error) {
                 failures[address] = error instanceof Error ? error.message : error;
@@ -71,20 +69,18 @@ export class LinearOriginator {
         // Only resolve when critical portion acheived and minimum time elapsed
         const wrappedPromise = new Promise<LinearResponse[]>(resolve => {
             promises.forEach(p => p.then(() => {
-                if (this.passesThreshold(results.length) && Date.now() - startTime >= this.state.options.minTime) {
-                    resolve(results);
+                if (this.passesThreshold(responses.length) && Date.now() - startTime >= baseTime + this.state.options.minTime) {
+                    resolve(responses);
                 }
             }));
         });
 
-        return { 
-            results: await Promise.race([
-                wrappedPromise,
-                new Promise<LinearResponse[]>(resolve => setTimeout(() => resolve(results), this.state.options.maxTime)),
-                minTimePromise.then(() => wrappedPromise)
-            ]),
-            failures
-        };
+        const results = await Promise.race([
+            wrappedPromise,
+            new Promise<LinearResponse[]>(resolve => setTimeout(() => resolve(responses), baseTime + this.state.options.maxTime)),
+            minTimePromise.then(() => wrappedPromise)
+        ]);
+        return { results, failures, actualTime: Date.now() - startTime } as LevelResponse;
     }
 
     private passesThreshold(count: number) {

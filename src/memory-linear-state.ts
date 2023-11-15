@@ -4,7 +4,7 @@ import { LinearRequest } from "./linear-request";
 import { LinearResponse } from "./linear-response";
 import { LinearQuery } from "./linear-query";
 import { LinearRoute } from "./linear-route";
-import { ILinearState } from "./linear-state";
+import { ILinearState, LevelResponse } from "./linear-state";
 import { generateQueryId, nonceFromAddress } from "./query-id";
 
 /**
@@ -16,6 +16,7 @@ export class MemoryLinearState implements ILinearState {
     private _failures: Record<string, string> = {};  // TODO: structured error information
     private _query: LinearQuery;
     private _noncesByAddress: Record<string, string>;
+    private _lastTime: number = 0;
 
     get query() { return this._query; }
 
@@ -31,6 +32,18 @@ export class MemoryLinearState implements ILinearState {
         );
     }
 
+    async startDepth() { }
+
+    async completeDepth(responses: LevelResponse) {
+        Object.entries(responses.failures).forEach(([address, error]) => 
+            this.addFailure(address, error));
+
+        Object.entries(responses.results).forEach(([address, response]) => 
+            this.addResponse(address, response));
+
+        this._lastTime = Math.max(responses.actualTime, this._lastTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
+    }
+
     getRoutes() {
         return Object.entries(this._responses)
             .flatMap(([address, response]) => response.paths.map(p => new LinearRoute(address, response.depth, p)))
@@ -43,7 +56,7 @@ export class MemoryLinearState implements ILinearState {
         return this._failures;
     }
 
-    addFailure(address: string, error: string) {
+    private addFailure(address: string, error: string) {
         this._failures[address] = error;
         delete this._outstanding[address];
     }
@@ -52,7 +65,7 @@ export class MemoryLinearState implements ILinearState {
         return this._responses[address];
     }
 
-    addResponse(address: string, response: LinearResponse) {
+    private addResponse(address: string, response: LinearResponse) {
         this._responses[address] = response;
         delete this._outstanding[address];
     }
