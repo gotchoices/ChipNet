@@ -1,16 +1,13 @@
-import { LinearOptions } from "./linear-options";
-import crypto from 'crypto';
-import { LinearRequest } from "./linear-request";
-import { LinearResponse } from "./linear-response";
-import { LinearQuery } from "./linear-query";
-import { LinearRoute } from "./linear-route";
-import { ILinearState, LevelResponse } from "./linear-state";
-import { generateQueryId, nonceFromAddress } from "./query-id";
+import { LinearOriginatorOptions } from "./originator-options";
+import { LinearRequest } from "./request";
+import { LinearResponse } from "./response";
+import { LinearQuery } from "./query";
+import { LinearRoute } from "./route";
+import { ILinearOriginatorState, LevelResponse } from "./originator-state";
+import { generateQueryId, nonceFromAddress } from "../query-id";
 
-/**
- * Simple implementation of linear state based on in-memory structures
- */
-export class MemoryLinearState implements ILinearState {
+/** Simple memory based implementation of linear state */
+export class SimpleLinearOriginatorState implements ILinearOriginatorState {
     private _responses: Record<string, LinearResponse> = {};
     private _outstanding: Record<string, LinearRequest> = {};
     private _failures: Record<string, string> = {};  // TODO: structured error information
@@ -21,7 +18,7 @@ export class MemoryLinearState implements ILinearState {
     get query() { return this._query; }
 
     constructor(
-        public options: LinearOptions
+        public options: LinearOriginatorOptions
     ) {
         const queryId = generateQueryId(this.options.queryOptions);
         this._query = { target: this.options.target, queryId };

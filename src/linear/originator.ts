@@ -1,11 +1,11 @@
-import { LinearRequest } from "./linear-request";
-import { LinearResponse } from "./linear-response";
-import { LinearRoute } from "./linear-route";
-import { ILinearState, LevelResponse } from "./linear-state";
+import { LinearRequest } from "./request";
+import { LinearResponse } from "./response";
+import { LinearRoute } from "./route";
+import { ILinearOriginatorState, LevelResponse } from "./originator-state";
 
 export class LinearOriginator {
     constructor(
-        private state: ILinearState
+        private state: ILinearOriginatorState
     ) { }
 
     async discover(): Promise<LinearRoute[]> {

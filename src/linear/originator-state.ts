@@ -1,8 +1,8 @@
-import { LinearRoute } from "./linear-route";
-import { LinearOptions } from "./linear-options";
-import { LinearQuery } from "./linear-query";
-import { LinearResponse } from "./linear-response";
-import { LinearRequest } from "./linear-request";
+import { LinearRoute } from "./route";
+import { LinearOriginatorOptions } from "./originator-options";
+import { LinearQuery } from "./query";
+import { LinearResponse } from "./response";
+import { LinearRequest } from "./request";
 
 export interface LevelResponse {
     results: LinearResponse[]; 
@@ -13,8 +13,8 @@ export interface LevelResponse {
 // TODO: consider using Record or Iterable when they are available in js, for immutability and scaling
 // TODO: make all of these async
 
-export interface ILinearState {
-	options: LinearOptions;
+export interface ILinearOriginatorState {
+	options: LinearOriginatorOptions;
 	query: LinearQuery;
 	startDepth(depth: number): Promise<void>;
 	completeDepth(responses: LevelResponse): Promise<void>;

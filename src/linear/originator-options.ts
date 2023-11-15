@@ -1,8 +1,7 @@
-import { LinearQuery } from "./linear-query";
-import { INetwork } from "./network";
-import { QueryOptions } from "./query-options";
+import { INetwork } from "../network";
+import { QueryOptions } from "../query-options";
 
-export class LinearOptions {
+export class LinearOriginatorOptions {
     maxDepth: number = 8;
     minTime: number = 30;
     maxTime: number = 500;
