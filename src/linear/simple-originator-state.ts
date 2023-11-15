@@ -21,7 +21,7 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         public options: LinearOriginatorOptions
     ) {
         const queryId = generateQueryId(this.options.queryOptions);
-        this._query = { target: this.options.target, queryId };
+        this._query = { target: this.options.target, queryId, metadata: this.options.metadata };
         this._noncesByAddress = this.options.peerAddresses.reduce((c, address) => {
                 c[address] = nonceFromAddress(address, queryId);;
                 return c;

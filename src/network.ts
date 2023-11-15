@@ -1,7 +1,7 @@
 import { LinearQuery } from "./linear/query";
 import { Path } from "./path";
 
-export interface LinearQueryResponse {
+export interface SendLinearResponse {
     hiddenData?: Uint8Array;
     paths: Path[];
 }
@@ -14,5 +14,5 @@ export interface INetwork {
      * @param query Original query from originator
      * @param hiddenData The hidden data returned by the peer from prior request (if not first request) - includes encoded depth
      */
-    sendLinear(address: string, path: string[], query: LinearQuery, hiddenData?: Uint8Array): Promise<LinearQueryResponse>;
+    sendLinear(address: string, path: string[], query: LinearQuery, hiddenData?: Uint8Array): Promise<SendLinearResponse>;
 }

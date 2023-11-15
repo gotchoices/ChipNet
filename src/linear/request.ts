@@ -1,10 +1,10 @@
 import { LinearResponse } from "./response";
-import { LinearQueryResponse } from "../network";
+import { SendLinearResponse } from "../network";
 
 export class LinearRequest {
     constructor(
         public address: string,
         public depth: number,
-        public response: Promise<LinearQueryResponse>
+        public response: Promise<SendLinearResponse>
     ) { }
 }
