@@ -1,3 +1,4 @@
+import { PhaseResponse } from "../phase";
 import { LinearParticipantOptions } from "./participant-options";
 import { LinearQuery } from "./query";
 
@@ -12,7 +13,8 @@ export interface LinearSegment {
 }
 
 export interface ILinearParticipantState {
+    options: LinearParticipantOptions;
+    completePhase(responses: PhaseResponse): Promise<void>;
     reportCycles(collisions: LinearSegment[]): Promise<void>;
     getMatches(query: LinearQuery): Promise<LinearMatchResult>;
-    options: LinearParticipantOptions;
 }

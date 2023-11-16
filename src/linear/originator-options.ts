@@ -1,11 +1,10 @@
 import { INetwork } from "../network";
+import { PhaseOptions } from "../phase";
 import { QueryOptions } from "../query-options";
 
 export class LinearOriginatorOptions {
     maxDepth: number = 8;
-    minTime: number = 30;
-    maxTime: number = 500;
-    minRatio: number = 0.6;
+    phaseOptions = new PhaseOptions();
     queryOptions = new QueryOptions();
     
     constructor(

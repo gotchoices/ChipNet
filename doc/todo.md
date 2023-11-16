@@ -3,3 +3,4 @@
 * Maintain QueryId history to validate QueryId uniqueness
 * Quotas & metrics
 * Async for all state functions
+* Advertising

@@ -3,12 +3,7 @@ import { LinearOriginatorOptions } from "./originator-options";
 import { LinearQuery } from "./query";
 import { LinearResponse } from "./response";
 import { LinearRequest } from "./request";
-
-export interface LevelResponse {
-    results: LinearResponse[]; 
-    failures: Record<string, string>; 
-    actualTime: number;
-}
+import { PhaseResponse } from "../phase";
 
 // TODO: consider using Record or Iterable when they are available in js, for immutability and scaling
 // TODO: make all of these async
@@ -16,8 +11,9 @@ export interface LevelResponse {
 export interface ILinearOriginatorState {
 	options: LinearOriginatorOptions;
 	query: LinearQuery;
-	startDepth(depth: number): Promise<void>;
-	completeDepth(responses: LevelResponse): Promise<void>;
+    getDepth(): Promise<number>;
+	startPhase(depth: number): Promise<void>;
+	completePhase(responses: PhaseResponse): Promise<void>;
 	getRoutes(): LinearRoute[];
 	getFailures(): Record<string, string>;
 	getResponse(address: string): LinearResponse | undefined;

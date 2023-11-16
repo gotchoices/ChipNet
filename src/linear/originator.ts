@@ -1,7 +1,8 @@
 import { LinearRequest } from "./request";
 import { LinearResponse } from "./response";
 import { LinearRoute } from "./route";
-import { ILinearOriginatorState, LevelResponse } from "./originator-state";
+import { ILinearOriginatorState } from "./originator-state";
+import { waitPhase } from "../phase";
 
 export class LinearOriginator {
     constructor(
@@ -9,7 +10,7 @@ export class LinearOriginator {
     ) { }
 
     async discover(): Promise<LinearRoute[]> {
-        for (var i = 1; i <= this.state.options.maxDepth; i++) {
+        for (var i = await this.state.getDepth(); i <= this.state.options.maxDepth; i++) {
             if (!await this.advance(i)) {
                 break;
             }
@@ -22,15 +23,15 @@ export class LinearOriginator {
     }
 
     private async advance(depth: number): Promise<boolean> {
-        await this.state.startDepth(depth);
+        await this.state.startPhase(depth);
 
         if (!this.requestFromAllAdvancable()) {
             return false;
         }
 
-        const responses = await this.waitForCriticalOrTimeout(depth);
+        const responses = await waitPhase(depth, this.state.getOutstanding(), this.state.options.phaseOptions);
 
-        await this.state.completeDepth(responses);
+        await this.state.completePhase(responses);
 
         return true;
     }
@@ -44,47 +45,6 @@ export class LinearOriginator {
             }
         });
         return anyQueued;
-    }
-
-    private async waitForCriticalOrTimeout(baseTime: number) {
-        const startTime = Date.now();
-        const responses: LinearResponse[] = [];
-        const failures: Record<string, string> = {};
-
-        // A promise that resolves after a minimum time
-        const minTimePromise = new Promise(resolve => setTimeout(resolve, baseTime + this.state.options.minTime));
-
-        // Map each request to a promise
-        const promises = Object.entries(this.state.getOutstanding()).map(async ([address, val]) => {
-            try {
-                const response = await val.response;
-                const linearResponse = new LinearResponse(address, val.depth, response.paths, response.hiddenData);
-                responses.push(linearResponse);
-                return linearResponse;
-            } catch (error) {
-                failures[address] = error instanceof Error ? error.message : error;
-            }
-        });
-
-        // Only resolve when critical portion acheived and minimum time elapsed
-        const wrappedPromise = new Promise<LinearResponse[]>(resolve => {
-            promises.forEach(p => p.then(() => {
-                if (this.passesThreshold(responses.length) && Date.now() - startTime >= baseTime + this.state.options.minTime) {
-                    resolve(responses);
-                }
-            }));
-        });
-
-        const results = await Promise.race([
-            wrappedPromise,
-            new Promise<LinearResponse[]>(resolve => setTimeout(() => resolve(responses), baseTime + this.state.options.maxTime)),
-            minTimePromise.then(() => wrappedPromise)
-        ]);
-        return { results, failures, actualTime: Date.now() - startTime } as LevelResponse;
-    }
-
-    private passesThreshold(count: number) {
-        return count >= (this.state.options.minRatio * this.state.options.peerAddresses.length);
     }
 
     private sendRequest(address: string): LinearRequest {

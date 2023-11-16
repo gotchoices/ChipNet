@@ -3,8 +3,9 @@ import { LinearRequest } from "./request";
 import { LinearResponse } from "./response";
 import { LinearQuery } from "./query";
 import { LinearRoute } from "./route";
-import { ILinearOriginatorState, LevelResponse } from "./originator-state";
 import { generateQueryId, nonceFromAddress } from "../query-id";
+import { ILinearOriginatorState } from "./originator-state";
+import { PhaseResponse } from "../phase";
 
 /** Simple memory based implementation of linear state */
 export class SimpleLinearOriginatorState implements ILinearOriginatorState {
@@ -13,7 +14,8 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
     private _failures: Record<string, string> = {};  // TODO: structured error information
     private _query: LinearQuery;
     private _noncesByAddress: Record<string, string>;
-    private _lastTime: number = 0;
+    private _lastTime = 0;
+    private _lastDepth = 1;
 
     get query() { return this._query; }
 
@@ -29,9 +31,15 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         );
     }
 
-    async startDepth() { }
+    async getDepth(): Promise<number> {
+        return this._lastDepth;
+    }
 
-    async completeDepth(responses: LevelResponse) {
+    async startPhase(depth: number) {
+        this._lastDepth = depth;
+    }
+
+    async completePhase(responses: PhaseResponse) {
         Object.entries(responses.failures).forEach(([address, error]) => 
             this.addFailure(address, error));
 
