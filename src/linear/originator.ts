@@ -10,6 +10,8 @@ export class LinearOriginator {
     ) { }
 
     async discover(): Promise<LinearRoute[]> {
+        // TODO: look for direct matches to peers first
+        
         for (var i = await this.state.getDepth(); i <= this.state.options.maxDepth; i++) {
             if (!await this.advance(i)) {
                 break;
@@ -29,30 +31,30 @@ export class LinearOriginator {
             return false;
         }
 
-        const responses = await waitPhase(depth, this.state.getOutstanding(), this.state.options.phaseOptions);
+        const phaseResponse = await waitPhase(depth, this.state.getOutstanding(), this.state.options.phaseOptions);
 
-        await this.state.completePhase(responses);
+        await this.state.completePhase(phaseResponse);
 
         return true;
     }
 
     private requestFromAllAdvancable() {
         var anyQueued = false;
-        this.state.options.peerAddresses.forEach(address => {
-            if (this.state.canAdvance(address)) {
-                this.state.addOutstanding(address, this.sendRequest(address));
+        this.state.options.peerLinks.forEach(link => {
+            if (this.state.canAdvance(link)) {
+                this.state.addOutstanding(link, this.sendRequest(link));
                 anyQueued = true;
             }
         });
         return anyQueued;
     }
 
-    private sendRequest(address: string): LinearRequest {
-        const lastResponse = this.state.getResponse(address);
+    private sendRequest(link: string): LinearRequest {
+        const lastResponse = this.state.getResponse(link);
         const nextDepth = (lastResponse?.depth ?? 0) + 1;
-        const nonce = this.state.getNonce(address);
-        return new LinearRequest(address, nextDepth, 
-            this.state.options.network.sendLinear(address, [nonce], this.state.query, lastResponse?.hiddenData)
+        const nonce = this.state.getNonce(link);
+        return new LinearRequest(link, nextDepth, 
+            this.state.options.network.sendLinear(link, [nonce], this.state.query, lastResponse?.hiddenReentrance)
         );
     }
 }

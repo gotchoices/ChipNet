@@ -1,0 +1,65 @@
+@startuml
+left to right direction
+
+node "N1 (originator)" as N1 #GoldenRod
+node N2 #LightGreen
+node N3 #LightGreen
+node N4 #LightGreen
+node "N5 (terminus)" as N5 #LightGreen
+
+N2 -[#Red]-> N1
+N1 <-- N2 : T1
+N2 <-- N3 : T2
+N3 -[#Gray]- N2
+N3 <-- N4 : T3
+N4 -[#Gray]- N3
+N4 <-- N5 : T4
+N5 -[#Gray]- N4
+N1 <-[#Red]- N5
+
+note top of N1
+    |= Node |= P |= C |
+    | N1 | <&check> | <&check> |
+    | N2 | <&check> | <&check> |
+    | N3 | <&check> | <&check> |
+    | N4 | <&check> | <&check> |
+    | N5 | <&check> | <&check> |
+end note
+
+note top of N2
+    |= Node |= P |= C |
+    | N1 | <&check> | |
+    | N2 | <&check> | <&check> |
+    | N3 | <&check> | <&check> |
+    | N4 | <&check> | <&check> |
+    | N5 | <&check> | |
+end note
+
+note top of N3
+    |= Node |= P |= C |
+    | N1 | <&check> | |
+    | N2 | <&check> | |
+    | N3 | <&check> | <&check> |
+    | N4 | <&check> | <&check> |
+    | N5 | <&check> | |
+end note
+
+note top of N4
+    |= Node |= P |= C |
+    | N1 | <&check> | |
+    | N2 | <&check> | |
+    | N3 | <&check> | |
+    | N4 | <&check> | <&check> |
+    | N5 | <&check> | |
+end note
+
+note top of N5
+    |= Node |= P |= C |
+    | N1 | <&check> | |
+    | N2 | <&check> | |
+    | N3 | <&check> | |
+    | N4 | <&check> | <&check> |
+    | N5 | <&check> | <&check> |
+end note
+
+@enduml

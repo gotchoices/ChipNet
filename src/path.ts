@@ -1,6 +1,6 @@
 export class Path {
     constructor(
-        public hiddenData: Uint8Array,
-        public metadata: any,
+        public hiddenPath: Uint8Array,
+        public terms: any,
     ) {}
 }

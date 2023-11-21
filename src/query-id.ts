@@ -121,10 +121,10 @@ export function generateQueryId(options: QueryOptions) {
 }
 
 /**
- * Generate anonymized address using a queryId as a salt
+ * Generate anonymized link identifier using a queryId as a salt
  */
-export function nonceFromAddress(address: string, queryId: string) {
+export function nonceFromLink(link: string, queryId: string) {
     return crypto.createHash('sha256')
-        .update(address + queryId)
+        .update(link + queryId)
         .digest('base64');
 }

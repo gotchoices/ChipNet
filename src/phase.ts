@@ -22,14 +22,14 @@ export async function waitPhase(baseTime: number, requests: Record<string, Linea
     const minTimePromise = new Promise(resolve => setTimeout(resolve, baseTime + options.minTime));
 
     // Map each request to a promise
-    const promises = Object.entries(requests).map(async ([address, request]) => {
+    const promises = Object.entries(requests).map(async ([link, request]) => {
         try {
             const response = await request.response;
-            const linearResponse = new LinearResponse(address, request.depth, response.paths, response.hiddenData);
+            const linearResponse = new LinearResponse(link, request.depth, response.paths, response.hiddenReentrance);
             responses.push(linearResponse);
             return linearResponse;
         } catch (error) {
-            failures[address] = error instanceof Error ? error.message : error;
+            failures[link] = error instanceof Error ? error.message : error;
         }
     });
 

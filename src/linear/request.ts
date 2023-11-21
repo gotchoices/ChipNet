@@ -3,7 +3,7 @@ import { SendLinearResponse } from "../network";
 
 export class LinearRequest {
     constructor(
-        public address: string,
+        public link: string,
         public depth: number,
         public response: Promise<SendLinearResponse>
     ) { }

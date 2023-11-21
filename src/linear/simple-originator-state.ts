@@ -3,7 +3,7 @@ import { LinearRequest } from "./request";
 import { LinearResponse } from "./response";
 import { LinearQuery } from "./query";
 import { LinearRoute } from "./route";
-import { generateQueryId, nonceFromAddress } from "../query-id";
+import { generateQueryId, nonceFromLink } from "../query-id";
 import { ILinearOriginatorState } from "./originator-state";
 import { PhaseResponse } from "../phase";
 
@@ -13,19 +13,21 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
     private _outstanding: Record<string, LinearRequest> = {};
     private _failures: Record<string, string> = {};  // TODO: structured error information
     private _query: LinearQuery;
-    private _noncesByAddress: Record<string, string>;
+    private _noncesByLink: Record<string, string>;
     private _lastTime = 0;
     private _lastDepth = 1;
 
     get query() { return this._query; }
 
     constructor(
-        public options: LinearOriginatorOptions
+        public options: LinearOriginatorOptions,
+        public target: string,  // Target address or identity token (not a link)
+        public terms: any,   // Arbitrary query data to be passed to the target for matching
     ) {
         const queryId = generateQueryId(this.options.queryOptions);
-        this._query = { target: this.options.target, queryId, metadata: this.options.metadata };
-        this._noncesByAddress = this.options.peerAddresses.reduce((c, address) => {
-                c[address] = nonceFromAddress(address, queryId);;
+        this._query = { target: this.target, queryId, terms: this.terms };
+        this._noncesByLink = this.options.peerLinks.reduce((c, link) => {
+                c[link] = nonceFromLink(link, queryId);;
                 return c;
             }, {} as Record<string, string>
         );
@@ -39,19 +41,19 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         this._lastDepth = depth;
     }
 
-    async completePhase(responses: PhaseResponse) {
-        Object.entries(responses.failures).forEach(([address, error]) => 
-            this.addFailure(address, error));
+    async completePhase(phaseResponse: PhaseResponse) {
+        Object.entries(phaseResponse.failures).forEach(([link, error]) => 
+            this.addFailure(link, error));
 
-        Object.entries(responses.results).forEach(([address, response]) => 
-            this.addResponse(address, response));
+        Object.entries(phaseResponse.results).forEach(([link, response]) => 
+            this.addResponse(link, response));
 
-        this._lastTime = Math.max(responses.actualTime, this._lastTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
+        this._lastTime = Math.max(phaseResponse.actualTime, this._lastTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
     }
 
     getRoutes() {
         return Object.entries(this._responses)
-            .flatMap(([address, response]) => response.paths.map(p => new LinearRoute(address, response.depth, p)))
+            .flatMap(([link, response]) => response.paths.map(p => new LinearRoute(link, response.depth, p)))
     }
 
     /**
@@ -61,18 +63,18 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         return this._failures;
     }
 
-    private addFailure(address: string, error: string) {
-        this._failures[address] = error;
-        delete this._outstanding[address];
+    private addFailure(link: string, error: string) {
+        this._failures[link] = error;
+        delete this._outstanding[link];
     }
 
-    getResponse(address: string): LinearResponse | undefined {
-        return this._responses[address];
+    getResponse(link: string): LinearResponse | undefined {
+        return this._responses[link];
     }
 
-    private addResponse(address: string, response: LinearResponse) {
-        this._responses[address] = response;
-        delete this._outstanding[address];
+    private addResponse(link: string, response: LinearResponse) {
+        this._responses[link] = response;
+        delete this._outstanding[link];
     }
 
     /**
@@ -82,21 +84,21 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         return this._outstanding;
     }
 
-    addOutstanding(address: string, request: LinearRequest) {
-        this._outstanding[address] = request;
+    addOutstanding(link: string, request: LinearRequest) {
+        this._outstanding[link] = request;
     }
 
-    canAdvance(address: string) {
+    canAdvance(link: string) {
         // Can advance if hasn't failed, already been queued, or responded with no data
-        return !this._failures[address]
-            && !this._outstanding[address]
-            && (!this._responses.hasOwnProperty(address) || Boolean(this._responses[address]?.hiddenData));
+        return !this._failures[link]
+            && !this._outstanding[link]
+            && (!this._responses.hasOwnProperty(link) || Boolean(this._responses[link]?.hiddenReentrance));
     }
 
-    getNonce(address: string) {
-        const result = this._noncesByAddress[address];
+    getNonce(link: string) {
+        const result = this._noncesByLink[link];
         if (!result) {
-            throw Error("Unable to find nonce for address");
+            throw Error("Unable to find nonce for link");
         }
         return result;
     }

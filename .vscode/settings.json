@@ -1,0 +1,7 @@
+{
+    "plantuml.exportOutDir": "doc/figures",
+    "plantuml.diagramsRoot": "doc/figures",
+    "plantuml.exportFormat": "png",
+    "plantuml.exportIncludeFolderHeirarchy": false,
+    "plantuml.exportSubFolder": false
+}

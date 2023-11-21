@@ -1,7 +1,9 @@
 import { INetwork } from "../network";
 import { PhaseResponse } from "../phase";
 import { LinearParticipantOptions } from "./participant-options";
-import { ILinearParticipantState, LinearMatchResult, LinearSegment } from "./participant-state";
+import { ILinearParticipantState } from "./participant-state";
+import { LinearMatch, LinearSearchResult } from "./linear-match";
+import { LinearSegment } from "./linear-segment";
 import { LinearQuery } from "./query";
 import { LinearResponse } from "./response";
 
@@ -14,31 +16,36 @@ export class SimpleLinearParticipantState implements ILinearParticipantState {
     constructor(
         public options: LinearParticipantOptions,
         public network: INetwork,
-        public peerIdentities?: Record<string, LinearSegment>,  // Mapping from target identity to address
-        public selfIdentity?: LinearSegment,                    // Identity token for this node (should provide this or peerIdentities)
+        public peerIdentities?: Record<string, LinearSegment>,  // Mapping from target identity to link
+        public selfIdentity?: string,                    // Identity token for this node (should provide this or peerIdentities)
     ) { }
     
     async reportCycles(collisions: LinearSegment[]) {
         this._cycles.push(...collisions);
     }
 
-    async getMatches(query: LinearQuery) {
-        const matches = await this.getExactMatches(query);
-        const candidates = matches.length ? [] : await this.getCandidates(query);
-        return { matches, candidates };
+    async search(query: LinearQuery) {
+        const match = await this.getMatch(query);
+        const candidates = match ? [] : await this.getCandidates(query);
+        return { match, candidates } as LinearSearchResult;
     }
 
-    private async getExactMatches(query: LinearQuery) {
-        return (
-            this.peerIdentities
-                ? this.peerIdentities.hasOwnProperty(query.target)
-                    ? [this.peerIdentities[query.target]] : []
-                : []
-        ).concat([this.selfIdentity]).filter(Boolean) as LinearSegment[];
+    private async getMatch(query: LinearQuery) {
+        return this.peerIdentities[query.target] 
+            ?? (this.selfIdentity === query.target 
+                ? { this.selfIdentity, hiddenData: await this.getHiddenData(query) } as LinearMatch
+                : undefined);
     }
+
+    private async getHiddenData(query: LinearQuery): Promise<Uint8Array | undefined> {
+        // "virtual" function, allows state to be encoded if a query is propagated to this node
+        return undefined;
+    }
+
+    private async filterTerms
 
     private async getCandidates(query: LinearQuery): Promise<LinearSegment[]> {
-        // TODO: can't implement this without inspecting metadata of query and 
+        // TODO: need mechanism for matching of terms
         throw new Error("Method not implemented.");
     }
 
@@ -49,25 +56,25 @@ export class SimpleLinearParticipantState implements ILinearParticipantState {
         return this._failures;
     }
 
-    private addFailure(address: string, error: string) {
-        this._failures[address] = error;
+    private addFailure(link: string, error: string) {
+        this._failures[link] = error;
     }
 
-    getResponse(address: string): LinearResponse | undefined {
-        return this._responses[address];
+    getResponse(link: string): LinearResponse | undefined {
+        return this._responses[link];
     }
 
-    private addResponse(address: string, response: LinearResponse) {
-        this._responses[address] = response;
+    private addResponse(link: string, response: LinearResponse) {
+        this._responses[link] = response;
     }
 
-    async completePhase(responses: PhaseResponse) {
-        Object.entries(responses.failures).forEach(([address, error]) => 
-            this.addFailure(address, error));
+    async completePhase(phaseResponse: PhaseResponse) {
+        Object.entries(phaseResponse.failures).forEach(([link, error]) => 
+            this.addFailure(link, error));
 
-        Object.entries(responses.results).forEach(([address, response]) => 
-            this.addResponse(address, response));
+        Object.entries(phaseResponse.results).forEach(([link, response]) => 
+            this.addResponse(link, response));
 
-        this._phaseTime = Math.max(responses.actualTime, this._phaseTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
+        this._phaseTime = Math.max(phaseResponse.actualTime, this._phaseTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
     }
 }

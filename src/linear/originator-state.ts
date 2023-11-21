@@ -16,9 +16,9 @@ export interface ILinearOriginatorState {
 	completePhase(responses: PhaseResponse): Promise<void>;
 	getRoutes(): LinearRoute[];
 	getFailures(): Record<string, string>;
-	getResponse(address: string): LinearResponse | undefined;
+	getResponse(link: string): LinearResponse | undefined;
 	getOutstanding(): Record<string, LinearRequest>;
-	addOutstanding(address: string, request: LinearRequest): void;
-	canAdvance(address: string): boolean;
-    getNonce(address: string): string;
+	addOutstanding(link: string, request: LinearRequest): void;
+	canAdvance(link: string): boolean;
+    getNonce(link: string): string;
 }
