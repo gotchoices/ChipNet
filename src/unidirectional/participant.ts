@@ -1,17 +1,18 @@
 import { decryptObject, encryptObject } from "../hiding";
-import { SendLinearResponse } from "../network";
+import { SendUniResponse } from "../network";
 import { waitPhase } from "../phase";
-import { LinearLink, LinearRoute, LinearSegment } from "../route";
+import { UniLink, UniRoute, UniSegment } from "../route";
 import { nonceFromLink } from "../transaction-id";
-import { ILinearParticipantState } from "./participant-state";
-import { LinearQuery } from "./query";
-import { LinearRequest } from "./request";
+import { Terms } from "../types";
+import { IUniParticipantState } from "./participant-state";
+import { UniQuery } from "./query";
+import { UniRequest } from "./request";
 
 interface UnhiddenCandidate {
     /** Link identifier */
     l: string,
     /** Terms */
-    t: any,
+    t: Terms,
     /** Hidden data */
     h?: Uint8Array,
 }
@@ -29,12 +30,12 @@ interface UnhiddenQueryData {
     ld?: number,
 }
 
-export class LinearParticipant {
+export class UniParticipant {
     constructor(
-        private state: ILinearParticipantState
+        private state: IUniParticipantState
     ) {}
     
-    async query(path: LinearRoute, query: LinearQuery, hiddenReentrance?: Uint8Array) {
+    async query(path: UniRoute, query: UniQuery, hiddenReentrance?: Uint8Array) {
         if (!hiddenReentrance) {
             return await this.queryFirstPhase(path, query);
         } else {
@@ -42,10 +43,10 @@ export class LinearParticipant {
         }
     }
 
-    async queryFirstPhase(path: LinearRoute, query: LinearQuery) {
+    async queryFirstPhase(path: UniRoute, query: UniQuery) {
         const matches = await this.state.search(path, query);
         if (matches.route) {
-            return { routes: [matches.route] } as SendLinearResponse;
+            return { routes: [matches.route] } as SendUniResponse;
         }
         const candidates = await this.filterCandidates(matches.candidates, path, query);
         return { 
@@ -57,11 +58,11 @@ export class LinearParticipant {
                     ct: Date.now() 
                 } as UnhiddenQueryData, 
                 this.state.options.key) 
-        } as SendLinearResponse;
+        } as SendUniResponse;
     }
 
     /** Eliminate cycles from the candidates, and report them. */
-    private async filterCandidates(candidates: LinearLink[], path: LinearRoute, query: LinearQuery) {
+    private async filterCandidates(candidates: UniLink[], path: UniRoute, query: UniQuery) {
         const cycles: Record<string, boolean> = {};
         candidates.forEach(c => {
             const nonce = nonceFromLink(c.id, query.transactionId);
@@ -78,10 +79,10 @@ export class LinearParticipant {
         return candidates.filter(c => !cycles[nonceFromLink(c.id, query.transactionId)]);
     }
 
-    async queryNextPhase(path: LinearRoute, query: LinearQuery, hiddenReentrance: Uint8Array): Promise<SendLinearResponse> {
+    async queryNextPhase(path: UniRoute, query: UniQuery, hiddenReentrance: Uint8Array): Promise<SendUniResponse> {
         const reentrance = decryptObject(hiddenReentrance, this.state.options.key) as UnhiddenQueryData;
         if (!this.validateNext(path, query, reentrance)) {
-            return { routes: [] } as SendLinearResponse;
+            return { routes: [] } as SendUniResponse;
         }
 
         // TODO: restore candidates from state that didn't complete in time
@@ -110,17 +111,17 @@ export class LinearParticipant {
                         ld: phaseResponse.actualTime
                     } as UnhiddenQueryData, 
                     this.state.options.key),
-        } as SendLinearResponse;
+        } as SendUniResponse;
     }
     
-    candidateRequests(path: LinearRoute, query: LinearQuery, candidates: UnhiddenCandidate[]) {
+    candidateRequests(path: UniRoute, query: UniQuery, candidates: UnhiddenCandidate[]) {
         return candidates.map(c => 
-            new LinearRequest(c.l, 
-                this.state.options.network.sendLinear(c.l, [...path, { nonce: nonceFromLink(c.l, query.transactionId), terms: c.t }], query, c.h))
-            ).reduce((c, r) => { c[r.link] = r; return c; }, {} as Record<string, LinearRequest>)
+            new UniRequest(c.l, 
+                this.state.options.network.sendUni(c.l, [...path, { nonce: nonceFromLink(c.l, query.transactionId), terms: c.t }], query, c.h))
+            ).reduce((c, r) => { c[r.link] = r; return c; }, {} as Record<string, UniRequest>)
     }
 
-    private validateNext(path: LinearRoute, query: LinearQuery, reentrance: UnhiddenQueryData) {
+    private validateNext(path: UniRoute, query: UniQuery, reentrance: UnhiddenQueryData) {
         // Ensure that the depth mathes the length of the path
         if (reentrance.d !== path.length) {
             return false;

@@ -1,9 +1,9 @@
-import { LinearRoute } from "../route";
+import { UniRoute } from "../route";
 
-export class LinearResponse {
+export class UniResponse {
     constructor(
         public link: string,
-        public routes: LinearRoute[] = [],
+        public routes: UniRoute[] = [],
         public hiddenReentrance?: Uint8Array, // only present if querying could or should continue
     ) { }
 }

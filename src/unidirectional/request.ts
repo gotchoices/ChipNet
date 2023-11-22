@@ -1,8 +1,8 @@
-import { SendLinearResponse } from "../network";
+import { SendUniResponse } from "../network";
 
-export class LinearRequest {
+export class UniRequest {
     constructor(
         public link: string,
-        public response: Promise<SendLinearResponse>
+        public response: Promise<SendUniResponse>
     ) { }
 }

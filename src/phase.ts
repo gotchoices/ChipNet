@@ -1,8 +1,8 @@
-import { LinearRequest } from "./unidirectional/request";
-import { LinearResponse } from "./unidirectional/response";
+import { UniRequest } from "./unidirectional/request";
+import { UniResponse } from "./unidirectional/response";
 
 export interface PhaseResponse {
-    results: LinearResponse[]; 
+    results: UniResponse[]; 
     failures: Record<string, string>; 
     actualTime: number;
 }
@@ -13,9 +13,9 @@ export class PhaseOptions {
     minRatio: number = 0.6;
 }
 
-export async function waitPhase(baseTime: number, requests: Record<string, LinearRequest>, options: PhaseOptions) {
+export async function waitPhase(baseTime: number, requests: Record<string, UniRequest>, options: PhaseOptions) {
     const startTime = Date.now();
-    const responses: LinearResponse[] = [];
+    const responses: UniResponse[] = [];
     const failures: Record<string, string> = {};
 
     // A promise that resolves after a minimum time
@@ -25,16 +25,16 @@ export async function waitPhase(baseTime: number, requests: Record<string, Linea
     const promises = Object.entries(requests).map(async ([link, request]) => {
         try {
             const response = await request.response;
-            const linearResponse = new LinearResponse(link, response.routes, response.hiddenReentrance);
-            responses.push(linearResponse);
-            return linearResponse;
+            const UniResponse = new UniResponse(link, response.routes, response.hiddenReentrance);
+            responses.push(UniResponse);
+            return UniResponse;
         } catch (error) {
             failures[link] = error instanceof Error ? error.message : error;
         }
     });
 
     // Only resolve when all complete, or critical portion acheived and minimum time elapsed
-    const wrappedPromise = new Promise<LinearResponse[]>(resolve => {
+    const wrappedPromise = new Promise<UniResponse[]>(resolve => {
         promises.forEach(p => p.then(() => {
             if (passesThreshold()) {
                 resolve(responses);
@@ -44,7 +44,7 @@ export async function waitPhase(baseTime: number, requests: Record<string, Linea
 
     const results = await Promise.race([
         wrappedPromise,
-        new Promise<LinearResponse[]>(resolve => setTimeout(() => resolve(responses), baseTime + options.maxTime)),
+        new Promise<UniResponse[]>(resolve => setTimeout(() => resolve(responses), baseTime + options.maxTime)),
         minTimePromise.then(() => wrappedPromise)
     ]);
     return { results, failures, actualTime: Date.now() - startTime } as PhaseResponse;

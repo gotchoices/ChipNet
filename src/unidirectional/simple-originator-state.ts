@@ -1,18 +1,19 @@
-import { LinearOriginatorOptions } from "./originator-options";
-import { LinearRequest } from "./request";
-import { LinearResponse } from "./response";
-import { LinearQuery } from "./query";
+import { UniOriginatorOptions } from "./originator-options";
+import { UniRequest } from "./request";
+import { UniResponse } from "./response";
+import { UniQuery } from "./query";
 import { generateTransactionId, nonceFromLink } from "../transaction-id";
-import { ILinearOriginatorState } from "./originator-state";
+import { IUniOriginatorState } from "./originator-state";
 import { PhaseResponse } from "../phase";
-import { LinearLink } from "../route";
+import { UniLink } from "../route";
+import { Terms } from "../types";
 
-/** Simple memory based implementation of linear state */
-export class SimpleLinearOriginatorState implements ILinearOriginatorState {
-    private _responses: Record<string, LinearResponse> = {};
-    private _outstanding: Record<string, LinearRequest> = {};
+/** Simple memory based implementation of Uni state */
+export class SimpleUniOriginatorState implements IUniOriginatorState {
+    private _responses: Record<string, UniResponse> = {};
+    private _outstanding: Record<string, UniRequest> = {};
     private _failures: Record<string, string> = {};  // TODO: structured error information
-    private _query: LinearQuery;
+    private _query: UniQuery;
     private _noncesByLink: Record<string, string>;
     private _lastTime = 0;
     private _lastDepth = 1;
@@ -20,10 +21,10 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
     get query() { return this._query; }
 
     constructor(
-        public options: LinearOriginatorOptions,
-        public peerLinks: LinearLink[],
+        public options: UniOriginatorOptions,
+        public peerLinks: UniLink[],
         public target: string,  // Target address or identity token (not a link)
-        public terms: any,   // Arbitrary query data to be passed to the target for matching
+        public terms: Terms,   // Arbitrary query data to be passed to the target for matching
     ) {
         const transactionId = generateTransactionId(this.options.transactionIdOptions);
         this._query = { target: this.target, transactionId: transactionId, terms: this.terms };
@@ -74,11 +75,11 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         delete this._outstanding[link];
     }
 
-    getResponse(link: string): LinearResponse | undefined {
+    getResponse(link: string): UniResponse | undefined {
         return this._responses[link];
     }
 
-    private addResponse(link: string, response: LinearResponse) {
+    private addResponse(link: string, response: UniResponse) {
         this._responses[link] = response;
         delete this._outstanding[link];
     }
@@ -90,7 +91,7 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         return this._outstanding;
     }
 
-    addOutstanding(link: string, request: LinearRequest) {
+    addOutstanding(link: string, request: UniRequest) {
         this._outstanding[link] = request;
     }
 

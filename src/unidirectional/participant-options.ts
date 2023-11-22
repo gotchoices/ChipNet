@@ -1,8 +1,8 @@
 import { INetwork } from "../network";
 import { PhaseOptions } from "../phase";
-import { LinearQuery } from "./query";
+import { UniQuery } from "./query";
 
-export class LinearParticipantOptions {
+export class UniParticipantOptions {
     maxAgeGap = 10000; // No longer than this between subsequent queries
     phaseOptions = new PhaseOptions();
 

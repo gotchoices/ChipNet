@@ -1,11 +1,13 @@
-export interface LinearLink {
+import { Terms } from "./types";
+
+export interface UniLink {
     id: string;
-    terms: any;
+    terms: Terms;
 }
 
-export interface LinearSegment {
+export interface UniSegment {
     nonce: string;
-    terms: any;
+    terms: Terms;
 }
 
-export type LinearRoute = LinearSegment[];
+export type UniRoute = UniSegment[];

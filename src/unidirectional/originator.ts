@@ -1,14 +1,14 @@
-import { LinearRequest } from "./request";
-import { ILinearOriginatorState } from "./originator-state";
+import { UniRequest } from "./request";
+import { IUniOriginatorState } from "./originator-state";
 import { waitPhase } from "../phase";
-import { LinearLink, LinearRoute, LinearSegment } from "../route";
+import { UniLink, UniRoute, UniSegment } from "../route";
 
-export class LinearOriginator {
+export class UniOriginator {
     constructor(
-        private state: ILinearOriginatorState
+        private state: IUniOriginatorState
     ) { }
 
-    async discover(): Promise<LinearRoute[]> {
+    async discover(): Promise<UniRoute[]> {
         // TODO: look for direct matches to peers first
         
         for (var i = await this.state.getDepth(); i <= this.state.options.maxDepth; i++) {
@@ -48,11 +48,11 @@ export class LinearOriginator {
         return anyQueued;
     }
 
-    private sendRequest(seg: LinearLink): LinearRequest {
+    private sendRequest(seg: UniLink): UniRequest {
         const lastResponse = this.state.getResponse(seg.id);
         const nonce = this.state.getNonce(seg.id);
-        return new LinearRequest(seg.id, 
-            this.state.options.network.sendLinear(seg.id, [{ terms: seg.terms, nonce: nonce }], this.state.query, lastResponse?.hiddenReentrance)
+        return new UniRequest(seg.id, 
+            this.state.options.network.sendUni(seg.id, [{ terms: seg.terms, nonce: nonce }], this.state.query, lastResponse?.hiddenReentrance)
         );
     }
 }
