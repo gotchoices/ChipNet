@@ -2,12 +2,12 @@
 left to right direction
 
 node "N1 (originator)" as N1 #GoldenRod
-node N2 #LightGreen
-node N3 #LightGreen
-node N4 #LightGreen
-node "N5 (terminus)" as N5 #LightGreen
+node N2 #GoldenRod
+node N3 #GoldenRod
+node N4 #GoldenRod
+node "N5 (terminus)" as N5 #GoldenRod
 
-N2 -[#Red]-> N1
+N2 -[#Gray]- N1
 N1 <-- N2 : L1
 N2 <-- N3 : L2
 N3 -[#Gray]- N2
@@ -15,7 +15,7 @@ N3 <-- N4 : L3
 N4 -[#Gray]- N3
 N4 <-- N5 : L4
 N5 -[#Gray]- N4
-N1 <-[#Red]- N5
+N1 -[#Gray]- N5
 
 note top of N1
     |= Edge |= P |= C |
@@ -28,38 +28,39 @@ end note
 
 note top of N2
     |= Edge |= P |= C |
-    | -L1 | <&check> | |
+    | -L1 | <&check> | <&check> |
     | L1-L2 | <&check> | <&check> |
     | L2-L3 | <&check> | <&check> |
     | L3-L4 | <&check> | <&check> |
-    | L4- | <&check> | |
+    | L4- | <&check> | <&check> |
 end note
 
 note top of N3
     |= Edge |= P |= C |
-    | -L1 | <&check> | |
-    | L1-L2 | <&check> | |
+    | -L1 | <&check> | <&check> |
+    | L1-L2 | <&check> | <&check> |
     | L2-L3 | <&check> | <&check> |
     | L3-L4 | <&check> | <&check> |
-    | L4- | <&check> | |
+    | L4- | <&check> | <&check> |
 end note
 
 note top of N4
     |= Edge |= P |= C |
-    | -L1 | <&check> | |
-    | L1-L2 | <&check> | |
-    | L2-L3 | <&check> | |
+    | -L1 | <&check> | <&check> |
+    | L1-L2 | <&check> | <&check> |
+    | L2-L3 | <&check> | <&check> |
     | L3-L4 | <&check> | <&check> |
-    | L4- | <&check> | |
+    | L4- | <&check> | <&check> |
 end note
 
 note top of N5
     |= Edge |= P |= C |
-    | -L1 | <&check> | |
-    | L1-L2 | <&check> | |
-    | L2-L3 | <&check> | |
+    | -L1 | <&check> | <&check> |
+    | L1-L2 | <&check> | <&check> |
+    | L2-L3 | <&check> | <&check> |
     | L3-L4 | <&check> | <&check> |
     | L4- | <&check> | <&check> |
 end note
+
 
 @enduml

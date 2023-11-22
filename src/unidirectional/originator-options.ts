@@ -1,14 +1,13 @@
 import { INetwork } from "../network";
 import { PhaseOptions } from "../phase";
-import { QueryOptions } from "../query-options";
+import { TransactionIdOptions } from "../transaction-id-options";
 
 export class LinearOriginatorOptions {
     maxDepth: number = 8;
     phaseOptions = new PhaseOptions();
-    queryOptions = new QueryOptions();
+    transactionIdOptions = new TransactionIdOptions();
     
     constructor(
-        public peerLinks: string[],
         public network: INetwork,
     ) {}
 }

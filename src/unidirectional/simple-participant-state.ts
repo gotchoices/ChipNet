@@ -1,14 +1,15 @@
 import { INetwork } from "../network";
 import { PhaseResponse } from "../phase";
+import { LinearLink, LinearRoute, LinearSegment } from "../route";
+import { nonceFromLink } from "../transaction-id";
+import { Terms } from "../types";
 import { LinearParticipantOptions } from "./participant-options";
-import { ILinearParticipantState } from "./participant-state";
-import { LinearMatch, LinearSearchResult } from "./linear-match";
-import { LinearSegment } from "./linear-segment";
+import { ILinearParticipantState, LinearSearchResult } from "./participant-state";
 import { LinearQuery } from "./query";
 import { LinearResponse } from "./response";
 
 export class SimpleLinearParticipantState implements ILinearParticipantState {
-    private _cycles: LinearSegment[] = [];
+    private _cycles: string[] = [];
     private _responses: Record<string, LinearResponse> = {};
     private _failures: Record<string, string> = {};  // TODO: structured error information
     private _phaseTime: number = 0;
@@ -16,37 +17,36 @@ export class SimpleLinearParticipantState implements ILinearParticipantState {
     constructor(
         public options: LinearParticipantOptions,
         public network: INetwork,
-        public peerIdentities?: Record<string, LinearSegment>,  // Mapping from target identity to link
+        public peerLinks: LinearLink[],
+        public matchTerms: (linkTerms: Terms, queryTerms: Terms) => Terms | undefined,
+        public peerIdentities?: Record<string, string>,  // Mapping from target identity to link identity
         public selfIdentity?: string,                    // Identity token for this node (should provide this or peerIdentities)
     ) { }
     
-    async reportCycles(collisions: LinearSegment[]) {
+    async reportCycles(collisions: string[]) {
         this._cycles.push(...collisions);
     }
 
-    async search(query: LinearQuery) {
-        const match = await this.getMatch(query);
-        const candidates = match ? [] : await this.getCandidates(query);
-        return { match, candidates } as LinearSearchResult;
+    async search(path: LinearRoute, query: LinearQuery) {
+        const route = await this.getMatch(path, query);
+        const candidates = route ? undefined : await this.getCandidates(query);
+        return { route, candidates } as LinearSearchResult;
     }
 
-    private async getMatch(query: LinearQuery) {
-        return this.peerIdentities[query.target] 
-            ?? (this.selfIdentity === query.target 
-                ? { this.selfIdentity, hiddenData: await this.getHiddenData(query) } as LinearMatch
-                : undefined);
+    private async getMatch(path: LinearRoute, query: LinearQuery) {
+        if (this.selfIdentity === query.target) {
+            return [] as LinearRoute;
+        }
+        const linkId = this.peerIdentities ? this.peerIdentities[query.target] : undefined;
+        const match = this.peerLinks[linkId] as LinearLink | undefined;
+        return match 
+            ? [...path, { nonce: nonceFromLink(match.id, query.transactionId), terms: match.terms } as LinearSegment] as LinearRoute 
+            : undefined;
     }
 
-    private async getHiddenData(query: LinearQuery): Promise<Uint8Array | undefined> {
-        // "virtual" function, allows state to be encoded if a query is propagated to this node
-        return undefined;
-    }
-
-    private async filterTerms
-
-    private async getCandidates(query: LinearQuery): Promise<LinearSegment[]> {
-        // TODO: need mechanism for matching of terms
-        throw new Error("Method not implemented.");
+    private async getCandidates(query: LinearQuery): Promise<LinearLink[]> {
+        return this.peerLinks.map(link => ({ id: link.id, terms: this.matchTerms(link.terms, query.terms) } as LinearLink))
+            .filter(l => l.terms);
     }
 
     /**

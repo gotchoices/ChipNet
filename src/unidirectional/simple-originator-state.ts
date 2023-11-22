@@ -2,10 +2,10 @@ import { LinearOriginatorOptions } from "./originator-options";
 import { LinearRequest } from "./request";
 import { LinearResponse } from "./response";
 import { LinearQuery } from "./query";
-import { LinearRoute } from "./route";
-import { generateQueryId, nonceFromLink } from "../query-id";
+import { generateTransactionId, nonceFromLink } from "../transaction-id";
 import { ILinearOriginatorState } from "./originator-state";
 import { PhaseResponse } from "../phase";
+import { LinearLink } from "../route";
 
 /** Simple memory based implementation of linear state */
 export class SimpleLinearOriginatorState implements ILinearOriginatorState {
@@ -21,13 +21,14 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
 
     constructor(
         public options: LinearOriginatorOptions,
+        public peerLinks: LinearLink[],
         public target: string,  // Target address or identity token (not a link)
         public terms: any,   // Arbitrary query data to be passed to the target for matching
     ) {
-        const queryId = generateQueryId(this.options.queryOptions);
-        this._query = { target: this.target, queryId, terms: this.terms };
-        this._noncesByLink = this.options.peerLinks.reduce((c, link) => {
-                c[link] = nonceFromLink(link, queryId);;
+        const transactionId = generateTransactionId(this.options.transactionIdOptions);
+        this._query = { target: this.target, transactionId: transactionId, terms: this.terms };
+        this._noncesByLink = this.peerLinks.reduce((c, link) => {
+                c[link.id] = nonceFromLink(link.id, transactionId);;
                 return c;
             }, {} as Record<string, string>
         );
@@ -51,9 +52,14 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         this._lastTime = Math.max(phaseResponse.actualTime, this._lastTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
     }
 
+    /** @returns The nodes peer links.  Do not mutate */
+    async getPeerLinks() {
+        return this.peerLinks;
+    }
+
     getRoutes() {
         return Object.entries(this._responses)
-            .flatMap(([link, response]) => response.paths.map(p => new LinearRoute(link, response.depth, p)))
+            .flatMap(([link, response]) => response.routes.flatMap(p => response.routes))
     }
 
     /**
@@ -88,7 +94,7 @@ export class SimpleLinearOriginatorState implements ILinearOriginatorState {
         this._outstanding[link] = request;
     }
 
-    canAdvance(link: string) {
+    shouldAdvance(link: string) {
         // Can advance if hasn't failed, already been queued, or responded with no data
         return !this._failures[link]
             && !this._outstanding[link]

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { QueryOptions } from './query-options';
+import { TransactionIdOptions } from './transaction-id-options';
 
 function checkSaltLength(salt: string, minLength: number): boolean {
     return Buffer.byteLength(salt, 'utf-8') >= minLength;
@@ -95,36 +95,36 @@ function runsTest(salt: string, threshold: number): boolean {
     return p_value > threshold;
 }
 
-/** Ensures that the given salt passes all of the tests for a query id */
-export function validateQueryId(salt: string, options: QueryOptions) {
-    return checkSaltLength(salt, options.queryIdLength) 
-        && calculateShannonEntropy(salt) >= options.queryIdMinEntropy
+/** Ensures that the given salt passes all of the tests for a Transaction ID */
+export function validateTransactionId(salt: string, options: TransactionIdOptions) {
+    return checkSaltLength(salt, options.length) 
+        && calculateShannonEntropy(salt) >= options.minEntropy
         && frequencyTest(salt, options.frequencyPValueThreshold)
         && runsTest(salt, options.runsPValueThreshold);
 }
 
 /**
- * Generates a unique query ID with sufficient entropy based on the given options.
- * @throws An error if a query ID with sufficient entropy cannot be generated within the maximum number of tries specified in the options.
+ * Generates a unique Transaction ID with sufficient entropy based on the given options.
+ * @throws An error if a Transaction ID with sufficient entropy cannot be generated within the maximum number of tries specified in the options.
  */
-export function generateQueryId(options: QueryOptions) {
+export function generateTransactionId(options: TransactionIdOptions) {
     var candidate: string;
     var tries = 0;
     do {
         if (tries > options.maxGenerateTries) {
-            throw new Error('Unable to generate a QueryId with sufficient entropy');
+            throw new Error('Unable to generate a Transaction ID with sufficient entropy');
         }
-        candidate = crypto.randomBytes(options.queryIdLength).toString('base64');
+        candidate = crypto.randomBytes(options.length).toString('base64');
         ++tries;
-    } while (!validateQueryId(candidate, options));
+    } while (!validateTransactionId(candidate, options));
     return candidate;
 }
 
 /**
- * Generate anonymized link identifier using a queryId as a salt
+ * Generate anonymized identifier using a Transaction ID as a salt
  */
-export function nonceFromLink(link: string, queryId: string) {
+export function nonceFromLink(link: string, transactionId: string) {
     return crypto.createHash('sha256')
-        .update(link + queryId)
+        .update(link + transactionId)
         .digest('base64');
 }

@@ -26,7 +26,7 @@ The worst case scenario is that a majority of nodes in the ring completely go of
 
 ## Promise Phase
 
-<p align="center"><img src="figures/promise-start.png" width="500" title="Sites contain multiple users"></p>
+<p align="center"><img src="figures/promise-start.png" width="500" title="Promise initiation"></p>
 
 * Originator adds promise and sends in both directions
 
@@ -34,21 +34,23 @@ The worst case scenario is that a majority of nodes in the ring completely go of
 
 * If a node gets promises from both directions, will have all promise votes.  Promise phase complete (convergence node)
 
-<p align="center"><img src="figures/promise-end.png" width="500" title="Sites contain multiple users"></p>
+<p align="center"><img src="figures/promise-end.png" width="500" title="Promise meeting at convergence node"></p>
 
 * If node receives incomplete promises, and timeout before sign, don't promise, add "pre-promise void" (PPV) signature instead and send in both directions. 
 
 ## Commit Phase
 
-<p align="center"><img src="figures/commit-start.png" width="500" title="Sites contain multiple users"></p>
+<p align="center"><img src="figures/commit-start.png" width="500" title="First commit step"></p>
 
 * Convergence node adds commit signature and sends fully promised record in both directions
 
-<p align="center"><img src="figures/commit-next.png" width="500" title="Sites contain multiple users"></p>
+<p align="center"><img src="figures/commit-next.png" width="500" title="Next step in commit"></p>
 
-* If meets from other direction, done.
+* When converges from other direction, this node is done.  Echo in both directions.
 
-<p align="center"><img src="figures/commit-committed.png" width="500" title="Sites contain multiple users"></p>
+<p align="center"><img src="figures/commit-committed.png" width="500" title="First node comitted"></p>
+
+<p align="center"><img src="figures/commit-final.png" width="500" title="Final committed state"></p>
 
 * If have self-committed and timeout, add void signature and send in both directions
 
@@ -76,5 +78,27 @@ The worst case scenario is that a majority of nodes in the ring completely go of
 
 * Timeouts should all be synchronized, but use time doubling or some such to avoid thrashing
 
-* Verify every peer message, including time sync, correct signatures, void before timeout, etc.  If incorrect, don't accept update; reply with problem, flag for reputation, and notify opposite peer
+* Verify every peer message, including:
 
+    * time sync
+    * correct signatures
+    * signed content matches signatures
+    * void before timeout
+    * signed both void and commit/promise
+    
+    If incorrect, don't accept update; reply with problem, flag for reputation, and notify opposite peer
+
+## Exceptions
+
+### Potential problems during Promise
+
+One or more nodes exhibits a:
+
+* loss of connection in one direction
+* loss of connection in both directions, or goes offline
+* clock jump forward – intentional or unintentional
+* clock jump backward – intentional or unintentional
+* void signing before timeout
+* both void and commit signed and sent
+* change of signed content
+* invalid change of terms before signing

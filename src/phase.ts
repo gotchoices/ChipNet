@@ -1,5 +1,5 @@
-import { LinearRequest } from "./linear/request";
-import { LinearResponse } from "./linear/response";
+import { LinearRequest } from "./unidirectional/request";
+import { LinearResponse } from "./unidirectional/response";
 
 export interface PhaseResponse {
     results: LinearResponse[]; 
@@ -25,7 +25,7 @@ export async function waitPhase(baseTime: number, requests: Record<string, Linea
     const promises = Object.entries(requests).map(async ([link, request]) => {
         try {
             const response = await request.response;
-            const linearResponse = new LinearResponse(link, request.depth, response.paths, response.hiddenReentrance);
+            const linearResponse = new LinearResponse(link, response.routes, response.hiddenReentrance);
             responses.push(linearResponse);
             return linearResponse;
         } catch (error) {

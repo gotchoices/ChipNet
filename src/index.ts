@@ -1,12 +1,12 @@
-export * from './linear/originator.js';
-export * from './linear/participant.js';
-export * from './linear/originator-state.js';
-export * from './linear/originator-options.js';
-export * from './linear/route.js';
-export * from './linear/simple-originator-state.js';
+export * from './unidirectional/originator.js';
+export * from './unidirectional/participant.js';
+export * from './unidirectional/originator-state.js';
+export * from './unidirectional/originator-options.js';
+export * from './types.js';
+export * from './unidirectional/simple-originator-state.js';
 
-export * from './circular/originator.js';
+export * from './bidirectional/originator.js';
 
-export * from './path.js';
+export * from './route.js';
 export * from './network.js';
-export * from './query-options.js';
+export * from './transaction-id-options.js';
