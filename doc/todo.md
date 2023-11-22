@@ -2,4 +2,5 @@
 * License
 * Maintain TransactionId history to validate TransactionId uniqueness
 * Quotas & metrics
-* Advertising
+* Balance advertising
+* Consider allowing for publicly identifiable links (don't nonce encode)

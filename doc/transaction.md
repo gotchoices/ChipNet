@@ -1,4 +1,6 @@
-# Ring vote consesus
+# Distributed Transactions
+
+## Ring voting consensus algorithm
 
 The goal of this algorithm is to have all nodes eventually converge, and to perform well in the normal case.  The proposed algorithm should takes as much time as a single message would take to traverse ONE WAY down the chain in the best case.  If a node possesses a record committed by a majority of nodes, it can treat the transaction as fully committed.  If a node possesses a record voided by a majority of nodes, it can safely free resources.
 
