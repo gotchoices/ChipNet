@@ -14,12 +14,13 @@ export interface IUniOriginatorState {
     getDepth(): Promise<number>;
 	startPhase(depth: number): Promise<void>;
 	completePhase(responses: PhaseResponse): Promise<void>;
+    getLastTime(): Promise<number>;
 	getPeerLinks(): Promise<UniLink[]>;
-	getRoutes(): UniRoute[];
-	getFailures(): Record<string, string>;
-	getResponse(link: string): UniResponse | undefined;
-	getOutstanding(): Record<string, UniRequest>;
-	addOutstanding(link: string, request: UniRequest): void;
-	shouldAdvance(link: string): boolean;
+	getRoutes(): Promise<UniRoute[]>;
+	getFailures(): Promise<Record<string, string>>;
+	getResponse(link: string): Promise<UniResponse | undefined>;
+	getOutstanding(): Promise<Record<string, UniRequest>>;
+	addOutstanding(link: string, request: UniRequest): Promise<void>;
+	shouldAdvance(link: string): Promise<boolean>;
     getNonce(link: string): string;
 }

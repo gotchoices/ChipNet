@@ -50,7 +50,11 @@ export class SimpleUniOriginatorState implements IUniOriginatorState {
         Object.entries(phaseResponse.results).forEach(([link, response]) => 
             this.addResponse(link, response));
 
-        this._lastTime = Math.max(phaseResponse.actualTime, this._lastTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
+        this._lastTime = phaseResponse.actualTime;
+    }
+
+    async getLastTime() {
+        return this._lastTime;
     }
 
     /** @returns The nodes peer links.  Do not mutate */
@@ -58,7 +62,7 @@ export class SimpleUniOriginatorState implements IUniOriginatorState {
         return this.peerLinks;
     }
 
-    getRoutes() {
+    async getRoutes() {
         return Object.entries(this._responses)
             .flatMap(([link, response]) => response.routes.flatMap(p => response.routes))
     }
@@ -66,7 +70,7 @@ export class SimpleUniOriginatorState implements IUniOriginatorState {
     /**
      * @returns The currently failed requests.  Do not mutate
      */
-    getFailures() {
+    async getFailures() {
         return this._failures;
     }
 
@@ -75,7 +79,7 @@ export class SimpleUniOriginatorState implements IUniOriginatorState {
         delete this._outstanding[link];
     }
 
-    getResponse(link: string): UniResponse | undefined {
+    async getResponse(link: string): Promise<UniResponse | undefined> {
         return this._responses[link];
     }
 
@@ -87,15 +91,15 @@ export class SimpleUniOriginatorState implements IUniOriginatorState {
     /**
      * @returns The currently outstanding requests.  Do not mutate
      */
-    getOutstanding() {
+    async getOutstanding() {
         return this._outstanding;
     }
 
-    addOutstanding(link: string, request: UniRequest) {
+    async addOutstanding(link: string, request: UniRequest) {
         this._outstanding[link] = request;
     }
 
-    shouldAdvance(link: string) {
+    async shouldAdvance(link: string) {
         // Can advance if hasn't failed, already been queued, or responded with no data
         return !this._failures[link]
             && !this._outstanding[link]

@@ -89,7 +89,8 @@ export class UniParticipant {
 
         const requests = this.candidateRequests(path, query, reentrance.c);
 
-        const phaseResponse = await waitPhase(reentrance.d, requests, this.state.options.phaseOptions);
+        const baseTime = Math.max((reentrance.d - 1) * this.state.options.phaseOptions.minTime, reentrance.ld ?? 0);
+        const phaseResponse = await waitPhase(baseTime, requests, this.state.options.phaseOptions);
 
         await this.state.completePhase(phaseResponse);
 

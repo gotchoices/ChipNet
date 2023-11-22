@@ -15,7 +15,7 @@ export class UniOriginator {
             if (!await this.advance(i)) {
                 break;
             }
-            var routes = this.state.getRoutes();
+            var routes = await this.state.getRoutes();
             if (routes.length > 0) {
                 return routes;
             }
@@ -26,30 +26,36 @@ export class UniOriginator {
     private async advance(depth: number): Promise<boolean> {
         await this.state.startPhase(depth);
 
-        if (!(await this.requestFromAllAdvancable())) {
+        if (!(await this.addAdvancableRequests())) {
             return false;
         }
 
-        const phaseResponse = await waitPhase(depth, this.state.getOutstanding(), this.state.options.phaseOptions);
+        const baseTime = Math.max((depth - 1) * this.state.options.phaseOptions.minTime, await this.state.getLastTime());
+        const phaseResponse = await waitPhase(baseTime, await this.state.getOutstanding(), this.state.options.phaseOptions);
 
         await this.state.completePhase(phaseResponse);
 
         return true;
     }
 
-    private async requestFromAllAdvancable() {
-        var anyQueued = false;
-        (await this.state.getPeerLinks()).forEach(link => {
-            if (this.state.shouldAdvance(link.id)) {
-                this.state.addOutstanding(link.id, this.sendRequest(link));
-                anyQueued = true;
-            }
-        });
-        return anyQueued;
+    private async addAdvancableRequests() {
+        const newRequests = 
+            (await this.state.getPeerLinks())
+                .map(async link => {
+                    if (await this.state.shouldAdvance(link.id)) {
+                        const request = await this.sendRequest(link);
+                        await this.state.addOutstanding(link.id, request);
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }).filter(Boolean);
+        await Promise.all(newRequests); // Node: this isn't awaiting on the requests themselves, just the creation and tracking of the requests
+        return Boolean(newRequests.length);
     }
 
-    private sendRequest(seg: UniLink): UniRequest {
-        const lastResponse = this.state.getResponse(seg.id);
+    private async sendRequest(seg: UniLink) {
+        const lastResponse = await this.state.getResponse(seg.id);
         const nonce = this.state.getNonce(seg.id);
         return new UniRequest(seg.id, 
             this.state.options.network.sendUni(seg.id, [{ terms: seg.terms, nonce: nonce }], this.state.query, lastResponse?.hiddenReentrance)
