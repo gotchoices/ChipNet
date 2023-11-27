@@ -25,9 +25,9 @@ export async function waitPhase(baseTime: number, requests: Record<string, UniRe
     const promises = Object.entries(requests).map(async ([link, request]) => {
         try {
             const response = await request.response;
-            const UniResponse = new UniResponse(link, response.routes, response.hiddenReentrance);
-            responses.push(UniResponse);
-            return UniResponse;
+            const uniResponse = new UniResponse(link, response.routes, response.hiddenReentrance);
+            responses.push(uniResponse);
+            return uniResponse;
         } catch (error) {
             failures[link] = error instanceof Error ? error.message : error;
         }
