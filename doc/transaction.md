@@ -8,12 +8,11 @@ The worst case scenario is that a majority of nodes in the ring completely go of
 
 ## Phases
 
-1. Discover – Find at least one route between originator and terminus matching the financial terms, and at least one non-financial route which doesn't intersect the first.  The latter route may also be direct in the event that the terminus discloses its physical address.
+1. Discover – Find at least one route between originator and terminus matching the financial terms, and if the originator and terminus aren't the same: at least one non-financial route which doesn't intersect the first.  The latter route may also be direct in the event that the terminus discloses its physical address.
 
-2. Promise – An all or nothing commitment of resources by each node.
+2. Promise – An all or nothing commitment of resources by each node, including a digital signature tied to a hash of the topology and terms.
 
-
-3. Commit - Dissemination of promises back to all nodes whereby majority wins.
+3. Commit - Dissemination of promises back to all nodes over a fixed period of time, whereby commit votes occur before the timeout and void votes after.  The majority of votes win.
 
 	
 ## Discovery Phase
@@ -30,15 +29,15 @@ The worst case scenario is that a majority of nodes in the ring completely go of
 
 <p align="center"><img src="figures/promise-start.png" width="500" title="Promise initiation"></p>
 
-* Originator adds promise and sends in both directions
+* Originator adds own promise signature and sends in both directions
 
     * Each node also adds own promise and forwards
 
-* If a node gets promises from both directions, will have all promise votes.  Promise phase complete (convergence node)
+* If a node gets promises from both directions, will have all promise votes.  This is the convergence node, and the promise phase is complete
 
 <p align="center"><img src="figures/promise-end.png" width="500" title="Promise meeting at convergence node"></p>
 
-* If node receives incomplete promises, and timeout before sign, don't promise, add "pre-promise void" (PPV) signature instead and send in both directions. 
+* If a node receives incomplete promises, and the timeout is past before signing a and forwarding, don't promise, add "pre-promise void" (PPV) signature instead and send in both directions. 
 
 ## Commit Phase
 
@@ -104,3 +103,7 @@ One or more nodes exhibits a:
 * both void and commit signed and sent
 * change of signed content
 * invalid change of terms before signing
+
+## Lifetime (Proposal)
+
+In MyCHIPs, there is a policy written into the tally contract that part of the obligation of a node is to have a certain degree of liveness, but how do the still live, minority nodes prove this?  If the early timeouts have expired for a node, the node makes a Time Stamping request to the network, and a collection of nodes on the network respond with their real time signed with the transaction ID.  If the majority remains unresponsive after some contracted long time period (1 week? Needs to be long enough to accommodate natural disasters and such) the node does this Time Stamping request again, and with enough signatures, is allowed by contract to regard the absent majority as having voted void.  [Should this require proof of nodes proximal to the unresponsive nodes?  Maybe there is a way to get Time Stamps from nodes who say they "know" the unresponsive nodes]
