@@ -1,4 +1,4 @@
-import { INetwork } from "../network";
+import { SendUniFunc } from "./callbacks";
 import { PhaseOptions } from "../phase";
 import { TransactionIdOptions } from "../transaction-id-options";
 
@@ -8,6 +8,6 @@ export class UniOriginatorOptions {
     transactionIdOptions = new TransactionIdOptions();
     
     constructor(
-        public network: INetwork,
+        public sendUni: SendUniFunc,
     ) {}
 }

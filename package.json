@@ -1,6 +1,7 @@
 {
   "name": "chipnet",
   "version": "0.1.0",
+  "target": "module",
   "description": "A meta-protocol library for MyCHIPS distributed operations",
   "main": "dist/index.js",
   "exports": {
@@ -9,7 +10,7 @@
   "scripts": {
     "clean": "rm -rf dist/",
     "build": "npm run clean && tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [
     "chipnet",
@@ -19,7 +20,10 @@
   "author": "Nathan Allan",
   "license": "GPL-3.0",
   "devDependencies": {
+    "@types/jest": "^29.5.10",
     "@types/node": "^20.9.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
     "typescript": "^5.0.2"
   }
 }

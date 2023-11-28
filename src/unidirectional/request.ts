@@ -1,4 +1,4 @@
-import { SendUniResponse } from "../network";
+import { SendUniResponse } from "./callbacks";
 
 export class UniRequest {
     constructor(

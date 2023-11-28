@@ -1,42 +1,51 @@
 import crypto from 'crypto';
 import { TransactionIdOptions } from './transaction-id-options';
 
-function checkSaltLength(salt: string, minLength: number): boolean {
-    return Buffer.byteLength(salt, 'utf-8') >= minLength;
+export function checkSaltLength(salt: string, minLength: number): boolean {
+    return Buffer.byteLength(salt, 'base64') >= minLength;
 }
 
 /**
- * Shannon entropy is a measure of randomness present in a dataset.  It is measured in bits, and its value depends on the length 
- * and character set of the string being analyzed. For a salt, the maximum possible entropy is determined by the log base 2 of
- * the number of possible characters in the character set, multiplied by the length of the string.
+ * Shannon entropy is a measure of randomness present in a data.  The Shannon entropy value in this context will always be between 0 and 1,
+ * regardless of the length of the input. This value represents the average uncertainty or randomness per bit in the given binary sequence.
  */
-function calculateShannonEntropy(salt: string): number {
+export function calculateShannonEntropy(salt: string): number {
+    const binarySequence = bufferToBinaryString(Buffer.from(salt, 'base64'));
     const probabilities = new Map<string, number>();
-    for (const char of salt) {
-        probabilities.set(char, (probabilities.get(char) || 0) + 1);
+
+    for (const bit of binarySequence) {
+        probabilities.set(bit, (probabilities.get(bit) || 0) + 1);
     }
 
     return [...probabilities.values()].reduce((entropy: number, freq: number) => {
-        const p = freq / salt.length;
+        const p = freq / binarySequence.length;
         return entropy - p * Math.log2(p);
     }, 0);
+}
+
+export function bufferToBinaryString(buffer: Buffer) {
+    let binaryString = '';
+    for (const byte of buffer) {
+        binaryString += byte.toString(2).padStart(8, '0');
+    }
+    return binaryString;
 }
 
 /**
  * The Frequency (Monobit) Test is used to assess the randomness of a sequence of bits.  This is part of the NIST Statistical Test Suite for Randomness
  * @returns true if the probability exceeds the given threshold
  */
-function frequencyTest(salt: string, threshold: number): boolean {
-    const binarySequence = Buffer.from(salt).toString('binary');
+export function frequencyTest(salt: string, threshold: number): boolean {
+    const binarySequence = bufferToBinaryString(Buffer.from(salt, 'base64'));
     let sum = 0;
     for (let i = 0; i < binarySequence.length; i++) {
-        sum += binarySequence.charCodeAt(i) === 0 ? -1 : 1;
+        sum += binarySequence[i] === '0' ? -1 : 1;
     }
 
     const s_obs = Math.abs(sum) / Math.sqrt(binarySequence.length);
     const p_value = Math.exp(-2 * s_obs * s_obs);
 
-    return p_value > threshold; // Common threshold for the p-value
+    return p_value < threshold; // Common threshold for the p-value
 }
 
 /**
@@ -68,23 +77,24 @@ function erfc(x: number): number {
 }
 
 /**
- * This test checks the total number of runs in the sequence (a run is an uninterrupted sequence of identical bits). 
- * The number of runs in a random sequence should follow a specific distribution.  This is part of the NIST Statistical Test Suite for Randomness
+ * This test checks the total number of runs in the sequence (a run is an uninterrupted sequence of identical bits).
+ * The number of runs in a random sequence should follow a specific distribution.  This is part of the NIST Statistical Test Suite for Randomness.
+ * A high p_value (close to 1) suggests that the observed sequence is consistent with the null hypothesis of randomness.
  * @returns true if the probability exceeds the given threshold
  */
-function runsTest(salt: string, threshold: number): boolean {
-    const binarySequence = Buffer.from(salt).toString('binary');
+export function runsTest(salt: string, threshold: number): boolean {
+    const binarySequence = bufferToBinaryString(Buffer.from(salt, 'base64'));
     let totalRuns = 1;
     let ones = 0;
 
     for (let i = 0; i < binarySequence.length; i++) {
-        ones += binarySequence.charCodeAt(i) === 0 ? 0 : 1;
+        ones += binarySequence[i] === '0' ? 0 : 1;
         if (i < binarySequence.length - 1) {
-            totalRuns += binarySequence.charCodeAt(i) !== binarySequence.charCodeAt(i + 1) ? 1 : 0;
+            totalRuns += binarySequence[i] !== binarySequence[i + 1] ? 1 : 0;
         }
     }
 
-    const pi = ones / binarySequence.length;
+    const pi = ones / (binarySequence.length * 1.0);
     if (Math.abs(pi - 0.5) >= 2 / Math.sqrt(binarySequence.length)) {
         return false; // The test is not applicable if pi is too far from 0.5
     }
@@ -97,7 +107,7 @@ function runsTest(salt: string, threshold: number): boolean {
 
 /** Ensures that the given salt passes all of the tests for a Transaction ID */
 export function validateTransactionId(salt: string, options: TransactionIdOptions) {
-    return checkSaltLength(salt, options.length) 
+    return checkSaltLength(salt, options.length)
         && calculateShannonEntropy(salt) >= options.minEntropy
         && frequencyTest(salt, options.frequencyPValueThreshold)
         && runsTest(salt, options.runsPValueThreshold);

@@ -3,5 +3,6 @@
     "plantuml.diagramsRoot": "doc/figures",
     "plantuml.exportFormat": "png",
     "plantuml.exportIncludeFolderHeirarchy": false,
-    "plantuml.exportSubFolder": false
+    "plantuml.exportSubFolder": false,
+    "cmake.configureOnOpen": false
 }

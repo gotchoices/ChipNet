@@ -1,5 +1,5 @@
 import { decryptObject, encryptObject } from "../hiding";
-import { SendUniResponse } from "../network";
+import { SendUniResponse } from "./callbacks";
 import { waitPhase } from "../phase";
 import { UniLink, UniRoute, UniSegment } from "../route";
 import { nonceFromLink } from "../transaction-id";
@@ -118,7 +118,7 @@ export class UniParticipant {
     candidateRequests(path: UniRoute, query: UniQuery, candidates: UnhiddenCandidate[]) {
         return candidates.map(c => 
             new UniRequest(c.l, 
-                this.state.options.network.sendUni(c.l, [...path, { nonce: nonceFromLink(c.l, query.transactionId), terms: c.t }], query, c.h))
+                this.state.options.sendUni(c.l, [...path, { nonce: nonceFromLink(c.l, query.transactionId), terms: c.t }], query, c.h))
             ).reduce((c, r) => { c[r.link] = r; return c; }, {} as Record<string, UniRequest>)
     }
 

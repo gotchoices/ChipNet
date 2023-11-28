@@ -1,7 +1,34 @@
+/**
+ * Represents the options for generating and validating transaction IDs.
+ */
 export class TransactionIdOptions {
-    minEntropy = 250;        // 250 bits of entropy of a maximum 256 bits in 32 bytes
-    length = 32;             // Update min entropy if this changes
+    /**
+     * The minimum entropy required for the generated transaction ID.
+     * Default value is 0.995, which represents 99.5% of the maximum entropy.
+     */
+    minEntropy = 0.995;
+
+    /**
+     * The length of the generated transaction ID in bytes.
+     * Default value is 32.
+     */
+    length = 32;
+
+    /**
+     * The maximum number of attempts to generate a valid transaction ID (with enough randomness) before erroring.
+     * Default value is 50.
+     */
     maxGenerateTries = 50;
-    frequencyPValueThreshold = 0.01; // Common threshold for the p-value
-    runsPValueThreshold = 0.01;      // Common threshold for the p-value
+
+    /**
+     * The upper p-value threshold for the frequency test.
+     * Default value is 0.15.
+     */
+    frequencyPValueThreshold = 0.15;
+
+    /**
+     * The lower p-value threshold for the runs test.
+     * Default value is 0.60.
+     */
+    runsPValueThreshold = 0.60;
 }

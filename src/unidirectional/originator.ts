@@ -58,7 +58,7 @@ export class UniOriginator {
         const lastResponse = await this.state.getResponse(seg.id);
         const nonce = this.state.getNonce(seg.id);
         return new UniRequest(seg.id, 
-            this.state.options.network.sendUni(seg.id, [{ terms: seg.terms, nonce: nonce }], this.state.query, lastResponse?.hiddenReentrance)
+            this.state.options.sendUni(seg.id, [{ terms: seg.terms, nonce: nonce }], this.state.query, lastResponse?.hiddenReentrance)
         );
     }
 }

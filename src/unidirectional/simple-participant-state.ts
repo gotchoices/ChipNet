@@ -1,8 +1,7 @@
-import { INetwork } from "../network";
+import { MatchTermsFunc, SendUniFunc } from "./callbacks";
 import { PhaseResponse } from "../phase";
 import { UniLink, UniRoute, UniSegment } from "../route";
 import { nonceFromLink } from "../transaction-id";
-import { Terms } from "../types";
 import { UniParticipantOptions } from "./participant-options";
 import { IUniParticipantState, UniSearchResult } from "./participant-state";
 import { UniQuery } from "./query";
@@ -13,16 +12,15 @@ export class SimpleUniParticipantState implements IUniParticipantState {
     private _responses: Record<string, UniResponse> = {};
     private _failures: Record<string, string> = {};  // TODO: structured error information
     private _phaseTime: number = 0;
-    
+
     constructor(
         public options: UniParticipantOptions,
-        public network: INetwork,
         public peerLinks: UniLink[],
-        public matchTerms: (linkTerms: Terms, queryTerms: Terms) => Terms | undefined,
+        public matchTerms: MatchTermsFunc,
         public peerIdentities?: Record<string, string>,  // Mapping from target identity to link identity
         public selfIdentity?: string,                    // Identity token for this node (should provide this or peerIdentities)
     ) { }
-    
+
     async reportCycles(collisions: string[]) {
         this._cycles.push(...collisions);
     }
@@ -38,9 +36,9 @@ export class SimpleUniParticipantState implements IUniParticipantState {
             return [] as UniRoute;
         }
         const linkId = this.peerIdentities ? this.peerIdentities[query.target] : undefined;
-        const match = this.peerLinks[linkId] as UniLink | undefined;
-        return match 
-            ? [...path, { nonce: nonceFromLink(match.id, query.transactionId), terms: match.terms } as UniSegment] as UniRoute 
+        const match = this.peerLinks.find(pl => pl.id === linkId) as UniLink | undefined;
+        return match
+            ? [...path, { nonce: nonceFromLink(match.id, query.transactionId), terms: match.terms } as UniSegment] as UniRoute
             : undefined;
     }
 
@@ -69,10 +67,10 @@ export class SimpleUniParticipantState implements IUniParticipantState {
     }
 
     async completePhase(phaseResponse: PhaseResponse) {
-        Object.entries(phaseResponse.failures).forEach(([link, error]) => 
+        Object.entries(phaseResponse.failures).forEach(([link, error]) =>
             this.addFailure(link, error));
 
-        Object.entries(phaseResponse.results).forEach(([link, response]) => 
+        Object.entries(phaseResponse.results).forEach(([link, response]) =>
             this.addResponse(link, response));
 
         this._phaseTime = Math.max(phaseResponse.actualTime, this._phaseTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
