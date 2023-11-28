@@ -122,7 +122,7 @@ export function generateTransactionId(options: TransactionIdOptions) {
     var tries = 0;
     do {
         if (tries > options.maxGenerateTries) {
-            throw new Error('Unable to generate a Transaction ID with sufficient entropy');
+            throw new Error('Unable to generate a Transaction ID with sufficient randomness');
         }
         candidate = crypto.randomBytes(options.length).toString('base64');
         ++tries;

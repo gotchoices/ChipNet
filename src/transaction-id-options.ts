@@ -16,9 +16,9 @@ export class TransactionIdOptions {
 
     /**
      * The maximum number of attempts to generate a valid transaction ID (with enough randomness) before erroring.
-     * Default value is 50.
+     * Default value is 100.
      */
-    maxGenerateTries = 50;
+    maxGenerateTries = 100;
 
     /**
      * The upper p-value threshold for the frequency test.
