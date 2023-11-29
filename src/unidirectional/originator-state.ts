@@ -11,10 +11,10 @@ import { UniLink, UniRoute } from "../route";
 export interface IUniOriginatorState {
 	options: UniOriginatorOptions;
 	query: UniQuery;
-    getDepth(): Promise<number>;
+	getDepth(): Promise<number>;
 	startPhase(depth: number): Promise<void>;
 	completePhase(responses: PhaseResponse): Promise<void>;
-    getLastTime(): Promise<number>;
+	getLastTime(): Promise<number>;
 	getPeerLinks(): Promise<UniLink[]>;
 	getRoutes(): Promise<UniRoute[]>;
 	getFailures(): Promise<Record<string, string>>;
@@ -22,5 +22,5 @@ export interface IUniOriginatorState {
 	getOutstanding(): Promise<Record<string, UniRequest>>;
 	addOutstanding(link: string, request: UniRequest): Promise<void>;
 	shouldAdvance(link: string): Promise<boolean>;
-    getNonce(link: string): string;
+	getNonce(link: string): string;
 }

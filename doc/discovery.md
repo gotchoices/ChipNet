@@ -35,3 +35,7 @@ Encrypted binary block containing state data necessary to continue search at dep
 * Current time - don't run stale queries
 
 The encryption is based on an aes-256 key which is given as part of configuration options.
+
+## Cycles
+
+Timing is carefully orchestrated during the route discovery process. ...

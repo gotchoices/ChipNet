@@ -14,3 +14,10 @@ This library provides the following capabilities:
 * [Transactions](doc/transaction.md) - distributed transactions using ring voting consensus
     * Linear transactions - from one node to another
     * Circular transactions - starting and ending at the same single node
+
+### Development
+
+* Build: npm run build
+	* Builds into an ES module
+* Test: npm test
+* Install Jest VSCode extension for easy test debugging

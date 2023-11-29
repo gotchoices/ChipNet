@@ -19,70 +19,94 @@ let participants: Record<string, UniParticipant>;
 let originator: UniOriginator;
 
 beforeEach(() => {
-    // Create a set of nodes
-    network = new TestNetwork(
-        [
-            new TestNode('N1'),
-            new TestNode('N2'),
-            new TestNode('N3'),
-        ],
-        [
-            new TestLink('L1', 'N1', 'N2').withTerms({ balance: 500 }),
-            new TestLink('L2', 'N2', 'N3').withTerms({ balance: 500 }),
-        ]
-    );
+	// TODO: find a way to mock crypto.randomBytes so that results are deterministic
 
-    const originatorNode = network.find('N1');
+	/**
+	 * @image ../doc/figures/test-network-1.png
+	 */
+	network = new TestNetwork(
+		[
+			new TestNode('N1'),
+			new TestNode('N2'),
+			new TestNode('N3'),
+			new TestNode('N4'),
+		],
+		[
+			new TestLink('L1', 'N1', 'N2').withTerms({ balance: 500 }),
+			new TestLink('L2', 'N2', 'N3').withTerms({ balance: 500 }),
+			new TestLink('L3', 'N2', 'N4').withTerms({ balance: 500 }),
+		]
+	);
 
-    function getSendUni(node: TestNode) {
-        return async (link: string, path: UniSegment[], query: UniQuery, hiddenReentrance?: Uint8Array) => {
-            const linkNode = network.nodeLinks(node).find(l => l.name === link);
-            const participant = participants[linkNode.node2];
-            await new Promise(resolve => setTimeout(resolve, 10));
-            const result = await participant.query(path, query, hiddenReentrance);
-            await new Promise(resolve => setTimeout(resolve, 10));
-            return result;
-        };
-    }
+	const originatorNode = network.find('N1');
 
-    const originatorState = new SimpleUniOriginatorState(
-        new UniOriginatorOptions(getSendUni(originatorNode)),
-        network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as UniLink)),
-        'N3',
-        { balance: 100 }
-    );
+	function getSendUni(node: TestNode) {
+		return async (link: string, path: UniSegment[], query: UniQuery, hiddenReentrance?: Uint8Array) => {
+			const linkNode = network.nodeLinks(node).find(l => l.name === link);
+			const participant = participants[linkNode.node2];
+			await new Promise(resolve => setTimeout(resolve, 10));
+			const result = await participant.query(path, query, hiddenReentrance);
+			await new Promise(resolve => setTimeout(resolve, 10));
+			return result;
+		};
+	}
 
-    originator = new UniOriginator(originatorState);
+	const originatorState = new SimpleUniOriginatorState(
+		new UniOriginatorOptions(getSendUni(originatorNode)),
+		network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as UniLink)),
+		'N3',
+		{ balance: 100 }
+	);
 
-    participantStates = network.nodes
-        .reduce((c, node) => {
-            c[node.name] = new SimpleUniParticipantState(
-                new UniParticipantOptions(crypto.randomBytes(32), getSendUni(node)),
-                network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as UniLink)),
-                (terms, query) => terms['balance'] > query.terms['balance'],
-                network.nodeLinks(node).reduce((c, l) => { c[l.node2] = l.name; return c; }, {} as Record<string, string>),
-                node.name
-            );
-            return c;
-        }, {} as Record<string, IUniParticipantState>);
+	originator = new UniOriginator(originatorState);
 
-    participants = network.nodes
-        .reduce((c, node) => {
-            c[node.name] = new UniParticipant(participantStates[node.name]);
-            return c;
-        }, {} as Record<string, UniParticipant>);
+	participantStates = network.nodes
+		.reduce((c, node) => {
+			c[node.name] = new SimpleUniParticipantState(
+				new UniParticipantOptions(crypto.randomBytes(32), getSendUni(node)),
+				network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as UniLink)),
+				(linkTerms, queryTerms) =>
+					linkTerms['balance'] >= queryTerms['balance']
+						? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
+						: undefined,
+				network.nodeLinks(node).reduce((c, l) => { c[l.node2] = l.name; return c; }, {} as Record<string, string>),
+				node.name
+			);
+			return c;
+		}, {} as Record<string, IUniParticipantState>);
+
+	participants = network.nodes
+		.reduce((c, node) => {
+			c[node.name] = new UniParticipant(participantStates[node.name]);
+			return c;
+		}, {} as Record<string, UniParticipant>);
 });
 
 describe('Simple discovery', () => {
 
-    test('should pass the test query through the originator', async () => {
-        const result = await originator.discover();
+	test('should pass the test query through the originator', async () => {
+		// TODO: set random seed so that this test is deterministic
+		const result = await originator.discover();
 
-        console.log(result);
-        // Assert the result
-        expect(result.length).toBe(1);
-        expect(result[0].length).toBe(2);
-        //expect(result[0][0].nonce).toBe();
-    }, 10000);
+		console.log(result);
+		// Assert the result
+		expect(result.length).toBe(1);
+		expect(result[0].length).toBe(2);
+
+		// TODO: check results
+		//expect(result[0][0].nonce).toBe();
+	}, 10000);
+
+	/* TODO: tests for:
+		* Finding at different terms.balance levels
+		* Not found scenarios
+		* Finding at different depths
+		* Finding multiple routes
+		* Finding based on node identity (not known to peers)
+		* Deeper and wider networks
+		* Various network timing scenarios
+		* Various network failures
+		* Bad actor scenarios
+	*/
 });
 

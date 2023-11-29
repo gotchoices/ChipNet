@@ -16,4 +16,10 @@ export interface SendUniResponse {
  */
 export type SendUniFunc = (link: string, path: UniSegment[], query: UniQuery, hiddenReentrance?: Uint8Array) => Promise<SendUniResponse>;
 
+/**
+ * A function that compares the terms on a link with the query terms and returns the terms as constained by the match or undefined if there is no match
+ * @param linkTerms The terms on the link
+ * @param queryTerms The terms in the query
+ * @returns The terms that match, or undefined if there is no match
+ */
 export type MatchTermsFunc = (linkTerms: Terms, queryTerms: Terms) => Terms | undefined;

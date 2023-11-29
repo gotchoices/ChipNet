@@ -12,6 +12,7 @@ export class SimpleUniParticipantState implements IUniParticipantState {
     private _responses: Record<string, UniResponse> = {};
     private _failures: Record<string, string> = {};  // TODO: structured error information
     private _phaseTime: number = 0;
+		private _peerLinksById: Record<string, UniLink> = {};
 
     constructor(
         public options: UniParticipantOptions,
@@ -19,7 +20,9 @@ export class SimpleUniParticipantState implements IUniParticipantState {
         public matchTerms: MatchTermsFunc,
         public peerIdentities?: Record<string, string>,  // Mapping from target identity to link identity
         public selfIdentity?: string,                    // Identity token for this node (should provide this or peerIdentities)
-    ) { }
+    ) {
+			peerLinks.forEach(l => this._peerLinksById[l.id] = l);
+		}
 
     async reportCycles(collisions: string[]) {
         this._cycles.push(...collisions);
@@ -36,9 +39,10 @@ export class SimpleUniParticipantState implements IUniParticipantState {
             return [] as UniRoute;
         }
         const linkId = this.peerIdentities ? this.peerIdentities[query.target] : undefined;
-        const match = this.peerLinks.find(pl => pl.id === linkId) as UniLink | undefined;
-        return match
-            ? [...path, { nonce: nonceFromLink(match.id, query.transactionId), terms: match.terms } as UniSegment] as UniRoute
+        const match = this._peerLinksById[linkId];
+				const terms = match ? this.matchTerms(match.terms, query.terms) : undefined;
+        return match && terms
+            ? [...path, { nonce: nonceFromLink(match.id, query.transactionId), terms } as UniSegment] as UniRoute
             : undefined;
     }
 

@@ -10,7 +10,7 @@ export class UniOriginator {
 
     async discover(): Promise<UniRoute[]> {
         // TODO: look for direct matches to peers first
-        
+
         for (var i = await this.state.getDepth(); i <= this.state.options.maxDepth; i++) {
             if (!await this.advance(i)) {
                 break;
@@ -39,7 +39,7 @@ export class UniOriginator {
     }
 
     private async addAdvancableRequests() {
-        const newRequests = 
+        const potentials =
             (await this.state.getPeerLinks())
                 .map(async link => {
                     if (await this.state.shouldAdvance(link.id)) {
@@ -49,16 +49,16 @@ export class UniOriginator {
                     } else {
                         return false;
                     }
-                }).filter(Boolean);
-        await Promise.all(newRequests); // Node: this isn't awaiting on the requests themselves, just the creation and tracking of the requests
+                });
+        const newRequests = (await Promise.all(potentials)).filter(Boolean); // Node: this isn't awaiting on the requests themselves, just the creation and tracking of the requests
         return Boolean(newRequests.length);
     }
 
     private async sendRequest(seg: UniLink) {
         const lastResponse = await this.state.getResponse(seg.id);
         const nonce = this.state.getNonce(seg.id);
-        return new UniRequest(seg.id, 
-            this.state.options.sendUni(seg.id, [{ terms: seg.terms, nonce: nonce }], this.state.query, lastResponse?.hiddenReentrance)
+        return new UniRequest(seg.id,
+            this.state.options.sendUni(seg.id, [{ nonce, terms: seg.terms }], this.state.query, lastResponse?.hiddenReentrance)
         );
     }
 }

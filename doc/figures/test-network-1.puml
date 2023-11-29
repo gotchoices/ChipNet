@@ -1,0 +1,13 @@
+@startuml
+left to right direction
+
+node "N1 (originator)" as N1
+node N2
+node "N3 (target)" as N3
+node N4
+
+N1 --> N2 : L1
+N2 --> N3 : L2
+N2 --> N4 : L3
+
+@enduml

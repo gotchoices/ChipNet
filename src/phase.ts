@@ -2,8 +2,8 @@ import { UniRequest } from "./unidirectional/request";
 import { UniResponse } from "./unidirectional/response";
 
 export interface PhaseResponse {
-    results: UniResponse[]; 
-    failures: Record<string, string>; 
+    results: UniResponse[];
+    failures: Record<string, string>;
     actualTime: number;
 }
 
@@ -50,8 +50,9 @@ export async function waitPhase(baseTime: number, requests: Record<string, UniRe
     return { results, failures, actualTime: Date.now() - startTime } as PhaseResponse;
 
     function passesThreshold() {
-        return responses.length === promises.length 
-            || (responses.length >= (options.minRatio * promises.length) 
+        return (responses.length + Object.keys(failures).length) === promises.length
+            || (
+							responses.length >= (options.minRatio * promises.length)
                 && Date.now() - startTime >= baseTime + options.minTime)
     }
 }
