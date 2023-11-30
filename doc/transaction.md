@@ -29,9 +29,12 @@ The worst case scenario is that a majority of nodes in the ring completely go of
 
 <p align="center"><img src="figures/promise-start.png" width="500" title="Promise initiation"></p>
 
+* Originator validates the discovery digest
+	* The terms remain acceptable based on the curent links
+	* The links in the topology and the target pass any reputation rules that might exist
+	* The number and proportion of additional voters are within configured parameters
 * Originator adds own promise signature and sends in both directions
-
-    * Each node also adds own promise and forwards
+  * Each node also adds own promise and forwards
 
 * If a node gets promises from both directions, will have all promise votes.  This is the convergence node, and the promise phase is complete
 
@@ -89,6 +92,12 @@ The worst case scenario is that a majority of nodes in the ring completely go of
     
     If incorrect, don't accept update; reply with problem, flag for reputation, and notify opposite peer
 
+## Extra votes
+
+In order for nodes to gain more assurance of liveness, during the discovery process, a node can indicate as part of accepted terms, that in order to participate in the transaction it requires being able to give additional peer voters.
+
+Nodes can observe these terms of other involved nodes as sell when a match propagates back towards the originator, and can update their acceptable terms as well in response, but a deeper node will have to wait until the next phase to see the complete topology.
+
 ## Exceptions
 
 ### Potential problems during Promise
@@ -103,7 +112,4 @@ One or more nodes exhibits a:
 * both void and commit signed and sent
 * change of signed content
 * invalid change of terms before signing
-
-## Lifetime (Proposal)
-
-In MyCHIPs, there is a policy written into the tally contract that part of the obligation of a node is to have a certain degree of liveness, but how do the still live, minority nodes prove this?  If the early timeouts have expired for a node, the node makes a Time Stamping request to the network, and a collection of nodes on the network respond with their real time signed with the transaction ID.  If the majority remains unresponsive after some contracted long time period (1 week? Needs to be long enough to accommodate natural disasters and such) the node does this Time Stamping request again, and with enough signatures, is allowed by contract to regard the absent majority as having voted void.  [Should this require proof of nodes proximal to the unresponsive nodes?  Maybe there is a way to get Time Stamps from nodes who say they "know" the unresponsive nodes]
+* too many excess votes
