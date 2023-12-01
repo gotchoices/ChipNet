@@ -57,6 +57,7 @@ export class TestNetwork {
 		return this._nodesByName[nodeName];
 	}
 }
+
 export class TestNode {
 	name: string;
 
@@ -64,6 +65,7 @@ export class TestNode {
 		this.name = name;
 	}
 }
+
 export class TestLink {
 	name: string;
 	node1: string;

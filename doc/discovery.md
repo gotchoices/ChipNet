@@ -36,12 +36,12 @@ Encrypted binary block containing state data necessary to continue search at dep
 
 The encryption is based on an aes-256 key which is given as part of configuration options.
 
-## Phases
+## Sequences
 
-Timing is carefully orchestrated during the route discovery process. With each depth level (phase), the originator waits for responses based on a combination of factors:
+Timing is carefully orchestrated during the route discovery process. With each depth level (sequence), the originator waits for responses based on a combination of factors:
 * Prior request timing - It is assumed that the amount of time taken by the prior request to complete will likely function as a baseline for the next request
-* Minimum time for critical threshold - The earliest the phase can terminate is when a critical proportion of responses come in, and at least a minimum amount of time (above the baseline) has transpired
+* Minimum time for critical threshold - The earliest the sequence can terminate is when a critical proportion of responses come in, and at least a minimum amount of time (above the baseline) has transpired
 * All responses - If all responses are in, this override the minimum time and critical threshold
-* Maximum time - Regardless of number of respondants, if the maximum time (above baseline) has transpired, the phase is over
+* Maximum time - Regardless of number of respondants, if the maximum time (above baseline) has transpired, the sequence is over
 
-If a response arrives after a phase completes, it will be included in the next phase, if there is one.
+If a response arrives after a sequence completes, it will be included in the next sequence, if there is one.
