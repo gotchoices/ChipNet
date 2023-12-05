@@ -10,8 +10,8 @@ The goal of this algorithm is to affect a transaction and have all nodes eventua
 * Referee - a node which votes on the commitment of the transaction.  Any of the nodes may also be a referee, and a referee may be none of those types (orthogonal).
 
 Other terms:
-* Topology - a description of the elements of the transaction and their relationships.
-* Record - A data structure containing the transaction's terms, it's toplogy, and signature state
+* Plan - a description of the toplogy of the transaction and the relationahip between those elements
+* Record - A data structure containing the transaction's terms, it's plan, and signature state
 
 ## Phases
 
@@ -19,7 +19,7 @@ Other terms:
    * a chain of participants from originator to terminus
    * if the originator and terminus aren't the same: at least one relay route or direct connection to form the ring.  A relay route if neither the originator or terminus discluses their phyical address; a direct connection if one or both does.
 
-2. Promise – An all-or-nothing decision by the participants to join the transaction.  This entails affixing a digital signature of the topology and terms.  Each promise signature is independant of the others and may be added in any order.
+2. Promise – An all-or-nothing decision by the participants to join the transaction.  This entails affixing a digital signature of the plan and terms.  Each promise signature is independant of the others and may be added in any order.
 
 3. Commit - One or more referee nodes vote to commit, or after a timeout, void the fully promised transaction.  A majority of commit or void votes constitutes a tentative consensus, and will be honored by all nodes who receive such a record
 
@@ -29,9 +29,9 @@ Other terms:
 
 Proceeds as documented in linear or bidirectional discovery.
 
-* Proposed node toplogy is spelled out explicitly by the end.  Participant nodes can change the proposed topology, such as adding referees, and propose different terms, such as including fees or a decreased transaction amount.
+* Proposed node toplogy is spelled out explicitly by the end.  Participant nodes can change the proposed plan, such as adding referees, and propose different terms, such as including fees or a decreased transaction amount.
 
-* The topology must include a public key for each participant and referee, in order for all nodes to be able to verify the authenticity of others' signatures.  These keys can be generated unique for the transaction.
+* The plan must include a public key for each participant and referee, in order for all nodes to be able to verify the authenticity of others' signatures.  These keys can be generated unique for the transaction.
 
 * Verify a reasonable time sync during discovery communication.  Measure delay time in both directions.
     
@@ -39,7 +39,7 @@ Proceeds as documented in linear or bidirectional discovery.
 
 ## Promise Phase
 
-All participants agree to the terms and allocate their resources.  Agreement is in the form of a digital signature of the topology and terms, at which point changes are locked in.  All nodes can validate a given participant's signature using its public key.
+All participants agree to the terms and allocate their resources.  Agreement is in the form of a digital signature of the plan and terms, at which point changes are locked in.  All nodes can validate a given participant's signature using its public key.
 
 <p align="center"><img src="figures/promise-start.png" width="500" title="Promise initiation"></p>
 
@@ -48,7 +48,7 @@ All participants agree to the terms and allocate their resources.  Agreement is 
 
 * Each participant validates the record, including
 	* The terms and structure of the record remain acceptable
-	* The links in the topology and the target pass any reputation rules that might exist
+	* The links in the plan and the target pass any reputation rules that might exist
 	* The referee(s) are acceptable within configured parameters
 	* Possibly check that any directly reachable referee(s) are reachable and share time sync
 
@@ -117,7 +117,7 @@ A record committed by a configured majority of referees (some ratio above 50%) i
     * signed content matches signatures
     * not void before timeout
     * not signed both void and commit/promise
-    * the link through which a record is received matches the topology
+    * the link through which a record is received matches the plan
     
     If incorrect, don't accept update; reply with problem, flag for reputation, and notify opposite peer
 
@@ -125,7 +125,7 @@ A record committed by a configured majority of referees (some ratio above 50%) i
 
 In order for nodes to gain more assurance of liveness, during the discovery process, a node can indicate as part of accepted terms, that in order to participate in the transaction it requires being able to give additional peer voters.
 
-Nodes can observe these terms of other involved nodes as sell when a match propagates back towards the originator, and can update their acceptable terms as well in response, but a deeper node will have to wait until the next phase to see the complete topology.
+Nodes can observe these terms of other involved nodes as sell when a match propagates back towards the originator, and can update their acceptable terms as well in response, but a deeper node will have to wait until the next phase to see the complete plan.
 
 ## Exceptions
 

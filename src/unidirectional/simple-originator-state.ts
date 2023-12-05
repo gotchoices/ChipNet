@@ -3,114 +3,130 @@ import { UniRequest } from "./request";
 import { UniResponse } from "./response";
 import { UniQuery } from "./query";
 import { generateTransactionId, nonceFromLink } from "../transaction-id";
-import { IUniOriginatorState } from "./originator-state";
-import { PhaseResponse } from "../phase";
-import { UniLink } from "../route";
+import { UniOriginatorState } from "./originator-state";
+import { SequenceResponse } from "../sequencing";
+import { PrivateLink } from "../private-link";
 import { Terms } from "../types";
+import { PrivateTarget, PublicTarget, TargetSecret } from "../target";
+import { Participant } from "../plan";
+import { KeyPair, encryptWithPublicKey, generateKeyPair } from "../asymmetric";
 
 /** Simple memory based implementation of Uni state */
-export class SimpleUniOriginatorState implements IUniOriginatorState {
-    private _responses: Record<string, UniResponse> = {};
-    private _outstanding: Record<string, UniRequest> = {};
-    private _failures: Record<string, string> = {};  // TODO: structured error information
-    private _query: UniQuery;
-    private _noncesByLink: Record<string, string>;
-    private _lastTime = 0;
-    private _lastDepth = 1;
+export class SimpleUniOriginatorState implements UniOriginatorState {
+	private _responses: Record<string, UniResponse> = {};
+	private _outstanding: Record<string, UniRequest> = {};
+	private _failures: Record<string, string> = {};  // TODO: structured error information
+	private _query: UniQuery;
+	private _noncesByLink: Record<string, string>;
+	private _lastTime = 0;
+	private _lastDepth = 1;
+	private _keyPair: KeyPair;
 
-    get query() { return this._query; }
+	get query() { return this._query; }
 
-    constructor(
-        public options: UniOriginatorOptions,
-        public peerLinks: UniLink[],
-        public target: string,  // Target address or identity token (not a link)
-        public terms: Terms,   // Arbitrary query data to be passed to the target for matching
-    ) {
-        const transactionId = generateTransactionId(this.options.transactionIdOptions);
-        this._query = { target: this.target, transactionId: transactionId, terms: this.terms };
-        this._noncesByLink = this.peerLinks.reduce((c, link) => {
-                c[link.id] = nonceFromLink(link.id, transactionId);;
-                return c;
-            }, {} as Record<string, string>
-        );
-    }
+	constructor(
+		public options: UniOriginatorOptions,
+		public peerLinks: PrivateLink[],
+		public target: PrivateTarget,  // Target address and other information
+		public terms: Terms,   // Arbitrary query data to be passed to the target for matching
+		public targetAddress?: string,	// Optional target physical address
+	) {
+		this._keyPair = generateKeyPair();
+		const transactionId = generateTransactionId(this.options.transactionIdOptions);
+		const secret = target.unsecret ? encryptWithPublicKey(this._keyPair.publicKey, JSON.stringify(target.unsecret)) : undefined;
+		const publicTarget = { address: target.address, secret } as PublicTarget;
+		this._query = { target: publicTarget, transactionId: transactionId, terms: this.terms };
+		this._noncesByLink = this.peerLinks.reduce((c, link) => {
+			c[link.id] = nonceFromLink(link.id, transactionId);;
+			return c;
+		}, {} as Record<string, string>
+		);
+	}
 
-    async getDepth(): Promise<number> {
-        return this._lastDepth;
-    }
+	async getParticipant(): Promise<Participant> {
+		return {
+			key: this._keyPair.publicKey,
+			isReferee: this.options.selfReferee,
+			// secret - we do not need this
+		}
+	}
 
-    async startPhase(depth: number) {
-        this._lastDepth = depth;
-    }
+	async getDepth(): Promise<number> {
+		return this._lastDepth;
+	}
 
-    async completePhase(phaseResponse: PhaseResponse) {
-        Object.entries(phaseResponse.failures).forEach(([link, error]) => 
-            this.addFailure(link, error));
+	async startPhase(depth: number) {
+		this._lastDepth = depth;
+	}
 
-        Object.entries(phaseResponse.results).forEach(([link, response]) => 
-            this.addResponse(link, response));
+	async completePhase(phaseResponse: SequenceResponse) {
+		Object.entries(phaseResponse.failures).forEach(([link, error]) =>
+			this.addFailure(link, error));
 
-        this._lastTime = phaseResponse.actualTime;
-    }
+		Object.entries(phaseResponse.results).forEach(([link, response]) =>
+			this.addResponse(link, response));
 
-    async getLastTime() {
-        return this._lastTime;
-    }
+		this._lastTime = phaseResponse.actualTime;
+	}
 
-    /** @returns The nodes peer links.  Do not mutate */
-    async getPeerLinks() {
-        return this.peerLinks;
-    }
+	async getLastTime() {
+		return this._lastTime;
+	}
 
-    async getRoutes() {
-        return Object.entries(this._responses)
-            .flatMap(([link, response]) => response.routes.flatMap(p => response.routes))
-    }
+	/** @returns The nodes peer links.  Do not mutate */
+	async getPeerLinks() {
+		return this.peerLinks;
+	}
 
-    /**
-     * @returns The currently failed requests.  Do not mutate
-     */
-    async getFailures() {
-        return this._failures;
-    }
+	async getRoutes() {
+		return Object.entries(this._responses)
+			.flatMap(([link, response]) => response.plans.flatMap(p => response.plans))
+	}
 
-    private addFailure(link: string, error: string) {
-        this._failures[link] = error;
-        delete this._outstanding[link];
-    }
+	/**
+	 * @returns The currently failed requests.  Do not mutate
+	 */
+	async getFailures() {
+		return this._failures;
+	}
 
-    async getResponse(link: string): Promise<UniResponse | undefined> {
-        return this._responses[link];
-    }
+	private addFailure(link: string, error: string) {
+		this._failures[link] = error;
+		delete this._outstanding[link];
+	}
 
-    private addResponse(link: string, response: UniResponse) {
-        this._responses[link] = response;
-        delete this._outstanding[link];
-    }
+	async getResponse(link: string): Promise<UniResponse | undefined> {
+		return this._responses[link];
+	}
 
-    /**
-     * @returns The currently outstanding requests.  Do not mutate
-     */
-    async getOutstanding() {
-        return this._outstanding;
-    }
+	private addResponse(link: string, response: UniResponse) {
+		this._responses[link] = response;
+		delete this._outstanding[link];
+	}
 
-    async addOutstanding(link: string, request: UniRequest) {
-        this._outstanding[link] = request;
-    }
+	/**
+	 * @returns The currently outstanding requests.  Do not mutate
+	 */
+	async getOutstanding() {
+		return this._outstanding;
+	}
 
-    async shouldAdvance(link: string) {
-        // Can advance if hasn't failed, already been queued, or responded with no data
-        return !this._failures[link]
-            && !this._outstanding[link]
-            && (!this._responses.hasOwnProperty(link) || Boolean(this._responses[link]?.hiddenReentrance));
-    }
+	async addOutstanding(link: string, request: UniRequest) {
+		this._outstanding[link] = request;
+	}
 
-    getNonce(link: string) {
-        const result = this._noncesByLink[link];
-        if (!result) {
-            throw Error("Unable to find nonce for link");
-        }
-        return result;
-    }
+	async shouldAdvance(link: string) {
+		// Can advance if hasn't failed, already been queued, or responded with no data
+		return !this._failures[link]
+			&& !this._outstanding[link]
+			&& (!this._responses.hasOwnProperty(link) || Boolean(this._responses[link]?.hiddenReentrance));
+	}
+
+	getNonce(link: string) {
+		const result = this._noncesByLink[link];
+		if (!result) {
+			throw Error("Unable to find nonce for link");
+		}
+		return result;
+	}
 }

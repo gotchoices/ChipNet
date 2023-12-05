@@ -5,16 +5,16 @@ import { UniOriginator } from '../src/unidirectional/originator';
 import { UniParticipant } from '../src/unidirectional/participant';
 import { UniQuery } from '../src/unidirectional/query';
 import { TestNetwork, TestNode, TestLink } from './test-network';
-import { IUniOriginatorState } from '../src/unidirectional/originator-state';
-import { IUniParticipantState } from '../src/unidirectional/participant-state';
 import { SimpleUniOriginatorState } from '../src/unidirectional/simple-originator-state';
 import { SimpleUniParticipantState } from '../src/unidirectional/simple-participant-state';
 import { UniOriginatorOptions } from '../src/unidirectional/originator-options';
-import { UniLink, UniSegment } from '../src/route';
 import { UniParticipantOptions } from '../src/unidirectional/participant-options';
+import { Plan } from '../src/plan';
+import { UniParticipantState } from '../src/unidirectional/participant-state';
+import { PrivateLink } from '../src/private-link';
 
 let network;
-let participantStates: Record<string, IUniParticipantState>;
+let participantStates: Record<string, UniParticipantState>;
 let participants: Record<string, UniParticipant>;
 let originator: UniOriginator;
 
@@ -41,20 +41,20 @@ beforeEach(() => {
 	const originatorNode = network.find('N1');
 
 	function getSendUni(node: TestNode) {
-		return async (link: string, path: UniSegment[], query: UniQuery, hiddenReentrance?: Uint8Array) => {
+		return async (link: string, plan: Plan, query: UniQuery, hiddenReentrance?: Uint8Array) => {
 			const linkNode = network.nodeLinks(node).find(l => l.name === link);
 			const participant = participants[linkNode.node2];
 			await new Promise(resolve => setTimeout(resolve, 10));
-			const result = await participant.query(path, query, hiddenReentrance);
+			const result = await participant.query(plan, query, hiddenReentrance);
 			await new Promise(resolve => setTimeout(resolve, 10));
 			return result;
 		};
 	}
 
 	const originatorState = new SimpleUniOriginatorState(
-		new UniOriginatorOptions(getSendUni(originatorNode)),
-		network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as UniLink)),
-		'N3',
+		new UniOriginatorOptions(getSendUni(originatorNode), true),
+		network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
+		{ address: { key: 'N3' } },
 		{ balance: 100 }
 	);
 
@@ -63,17 +63,17 @@ beforeEach(() => {
 	participantStates = network.nodes
 		.reduce((c, node) => {
 			c[node.name] = new SimpleUniParticipantState(
-				new UniParticipantOptions(crypto.randomBytes(32), getSendUni(node)),
-				network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as UniLink)),
+				new UniParticipantOptions(crypto.randomBytes(32), getSendUni(node), true, []),
+				network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
 				(linkTerms, queryTerms) =>
 					linkTerms['balance'] >= queryTerms['balance']
 						? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
 						: undefined,
-				network.nodeLinks(node).reduce((c, l) => { c[l.node2] = l.name; return c; }, {} as Record<string, string>),
+				network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, linkId: l.name })),
 				node.name
 			);
 			return c;
-		}, {} as Record<string, IUniParticipantState>);
+		}, {} as Record<string, UniParticipantState>);
 
 	participants = network.nodes
 		.reduce((c, node) => {
@@ -91,7 +91,7 @@ describe('Simple discovery', () => {
 		console.log(result);
 		// Assert the result
 		expect(result.length).toBe(1);
-		expect(result[0].length).toBe(2);
+		expect(result[0].path.length).toBe(2);
 
 		// TODO: check results
 		//expect(result[0][0].nonce).toBe();

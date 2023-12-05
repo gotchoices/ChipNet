@@ -1,82 +1,131 @@
 import { MatchTermsFunc, SendUniFunc } from "./callbacks";
-import { PhaseResponse } from "../phase";
-import { UniLink, UniRoute, UniSegment } from "../route";
+import { SequenceResponse } from "../sequencing";
+import { PrivateLink } from "../private-link";
 import { nonceFromLink } from "../transaction-id";
 import { UniParticipantOptions } from "./participant-options";
-import { IUniParticipantState, UniSearchResult } from "./participant-state";
+import { UniParticipantState, UniSearchResult } from "./participant-state";
 import { UniQuery } from "./query";
 import { UniResponse } from "./response";
+import { ExternalReferee, Participant, Plan, PublicLink } from "../plan";
+import { Address, addressesMatch } from "../target";
+import { KeyPair, generateKeyPair } from "../asymmetric";
 
-export class SimpleUniParticipantState implements IUniParticipantState {
-    private _cycles: string[] = [];
-    private _responses: Record<string, UniResponse> = {};
-    private _failures: Record<string, string> = {};  // TODO: structured error information
-    private _phaseTime: number = 0;
-		private _peerLinksById: Record<string, UniLink> = {};
+export interface PeerAddress {
+	address: Address;
+	selfReferee: boolean;					// Referee preferences of the peer
+	externalReferees?: string[];
+	linkId: string;
+}
 
-    constructor(
-        public options: UniParticipantOptions,
-        public peerLinks: UniLink[],
-        public matchTerms: MatchTermsFunc,
-        public peerIdentities?: Record<string, string>,  // Mapping from target identity to link identity
-        public selfIdentity?: string,                    // Identity token for this node (should provide this or peerIdentities)
-    ) {
-			peerLinks.forEach(l => this._peerLinksById[l.id] = l);
+export class SimpleUniParticipantState implements UniParticipantState {
+	private _cycles: string[] = [];
+	private _responses: Record<string, UniResponse> = {};
+	private _failures: Record<string, string> = {};  // TODO: structured error information
+	private _phaseTime: number = 0;
+	private _peerLinksById: Record<string, PrivateLink> = {};
+	private _peerIdentitiesByKey: Record<string, PeerAddress[]> = {};
+	private _keyPair: KeyPair;
+
+	constructor(
+		public options: UniParticipantOptions,
+		public peerLinks: PrivateLink[],
+		public matchTerms: MatchTermsFunc,
+		public peerAddresses?: PeerAddress[],  	// List of peer addresses, and their link mappings
+		public selfAddress?: Address,           // Identity for this node (should provide this or peerIdentities or both)
+	) {
+		this._keyPair = generateKeyPair();
+		peerLinks.forEach(l => this._peerLinksById[l.id] = l);
+		if (peerAddresses) {
+			peerAddresses.forEach(i => {
+				if (!this._peerIdentitiesByKey[i.address.key]) {
+					this._peerIdentitiesByKey[i.address.key] = [];
+				}
+				this._peerIdentitiesByKey[i.address.key].push(i);
+			});
+		}
+	}
+
+	async reportCycles(collisions: string[]) {
+		this._cycles.push(...collisions);
+	}
+
+	async search(plan: Plan, query: UniQuery) {
+		const route = await this.getMatch(plan, query);
+		const candidates = route ? undefined : await this.getCandidates(query);
+		return { route, candidates } as UniSearchResult;
+	}
+
+	private async getParticipant(): Promise<Participant> {
+		return {
+			key: this._keyPair.publicKey,
+			isReferee: this.options.selfReferee,
+			// secret - we do not need this
+		}
+	}
+
+	private async getMatch(plan: Plan, query: UniQuery) {
+		// Look at ourself first
+		if (addressesMatch(this.selfAddress, query.target.address)) {
+			const participant = await this.getParticipant();
+			return { path: [], participants: [participant], externalReferees: this.options.externalReferees } as Plan;
 		}
 
-    async reportCycles(collisions: string[]) {
-        this._cycles.push(...collisions);
-    }
+		const peersForKey = this.peerAddresses ? this.peerAddresses[query.target.address.key] : undefined;
+		const peer = peersForKey && peersForKey.find(p => addressesMatch(p.address, query.target.address));
+		const match = this._peerLinksById[peer?.linkId];
+		const terms = match ? this.matchTerms(match.terms, query.terms) : undefined;
+		return match && terms
+			? await this.negotiatePlan({
+					path: [...plan.path, { nonce: nonceFromLink(match.id, query.transactionId), terms } as PublicLink],
+					participants: [{ key: peer.address.key, isReferee: peer.selfReferee }],
+					externalReferees: peer.externalReferees
+			})
+			: undefined;
+	}
 
-    async search(path: UniRoute, query: UniQuery) {
-        const route = await this.getMatch(path, query);
-        const candidates = route ? undefined : await this.getCandidates(query);
-        return { route, candidates } as UniSearchResult;
-    }
+	async negotiatePlan(plan: Plan) {
+		return this.options.externalReferees
+			? { ...plan, externalReferees: concatExternalReferees(plan.externalReferees ?? [], this.options.externalReferees) }
+			: plan;
+	}
 
-    private async getMatch(path: UniRoute, query: UniQuery) {
-        if (this.selfIdentity === query.target) {
-            return [] as UniRoute;
-        }
-        const linkId = this.peerIdentities ? this.peerIdentities[query.target] : undefined;
-        const match = this._peerLinksById[linkId];
-				const terms = match ? this.matchTerms(match.terms, query.terms) : undefined;
-        return match && terms
-            ? [...path, { nonce: nonceFromLink(match.id, query.transactionId), terms } as UniSegment] as UniRoute
-            : undefined;
-    }
+	private async getCandidates(query: UniQuery): Promise<PrivateLink[]> {
+		return this.peerLinks.map(link => ({ id: link.id, terms: this.matchTerms(link.terms, query.terms) } as PrivateLink))
+			.filter(l => l.terms);
+	}
 
-    private async getCandidates(query: UniQuery): Promise<UniLink[]> {
-        return this.peerLinks.map(link => ({ id: link.id, terms: this.matchTerms(link.terms, query.terms) } as UniLink))
-            .filter(l => l.terms);
-    }
+	/**
+	 * @returns The currently failed requests.  Do not mutate
+	 */
+	getFailures() {
+		return this._failures;
+	}
 
-    /**
-     * @returns The currently failed requests.  Do not mutate
-     */
-    getFailures() {
-        return this._failures;
-    }
+	private addFailure(link: string, error: string) {
+		this._failures[link] = error;
+	}
 
-    private addFailure(link: string, error: string) {
-        this._failures[link] = error;
-    }
+	getResponse(link: string): UniResponse | undefined {
+		return this._responses[link];
+	}
 
-    getResponse(link: string): UniResponse | undefined {
-        return this._responses[link];
-    }
+	private addResponse(link: string, response: UniResponse) {
+		this._responses[link] = response;
+	}
 
-    private addResponse(link: string, response: UniResponse) {
-        this._responses[link] = response;
-    }
+	async completePhase(phaseResponse: SequenceResponse) {
+		Object.entries(phaseResponse.failures).forEach(([link, error]) =>
+			this.addFailure(link, error));
 
-    async completePhase(phaseResponse: PhaseResponse) {
-        Object.entries(phaseResponse.failures).forEach(([link, error]) =>
-            this.addFailure(link, error));
+		Object.entries(phaseResponse.results).forEach(([link, response]) =>
+			this.addResponse(link, response));
 
-        Object.entries(phaseResponse.results).forEach(([link, response]) =>
-            this.addResponse(link, response));
-
-        this._phaseTime = Math.max(phaseResponse.actualTime, this._phaseTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
-    }
+		this._phaseTime = Math.max(phaseResponse.actualTime, this._phaseTime);    // (don't allow a quickly returning depth prevent giving time for propagation)
+	}
 }
+
+/** returns desired set of referees (currently deduplicated union) */
+function concatExternalReferees(referees1: ExternalReferee[], referees2: ExternalReferee[]) {
+	return referees1.concat(referees2.filter(r2 => !referees1.find(r1 => r1.key === r2.key)));
+}
+

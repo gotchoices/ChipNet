@@ -1,14 +1,15 @@
 import { UniRequest } from "./request";
-import { IUniOriginatorState } from "./originator-state";
-import { waitPhase } from "../phase";
-import { UniLink, UniRoute, UniSegment } from "../route";
+import { UniOriginatorState } from "./originator-state";
+import { sequenceStep } from "../sequencing";
+import { PrivateLink } from "../private-link";
+import { Plan } from "../plan";
 
 export class UniOriginator {
     constructor(
-        private state: IUniOriginatorState
+        private state: UniOriginatorState
     ) { }
 
-    async discover(): Promise<UniRoute[]> {
+    async discover(): Promise<Plan[]> {
         // TODO: look for direct matches to peers first
 
         for (var i = await this.state.getDepth(); i <= this.state.options.maxDepth; i++) {
@@ -31,7 +32,7 @@ export class UniOriginator {
         }
 
         const baseTime = Math.max((depth - 1) * this.state.options.phaseOptions.minTime, await this.state.getLastTime());
-        const phaseResponse = await waitPhase(baseTime, await this.state.getOutstanding(), this.state.options.phaseOptions);
+        const phaseResponse = await sequenceStep(baseTime, await this.state.getOutstanding(), this.state.options.phaseOptions);
 
         await this.state.completePhase(phaseResponse);
 
@@ -54,11 +55,20 @@ export class UniOriginator {
         return Boolean(newRequests.length);
     }
 
-    private async sendRequest(seg: UniLink) {
+    private async sendRequest(seg: PrivateLink) {
         const lastResponse = await this.state.getResponse(seg.id);
         const nonce = this.state.getNonce(seg.id);
+				const participant = await this.state.getParticipant();
         return new UniRequest(seg.id,
-            this.state.options.sendUni(seg.id, [{ nonce, terms: seg.terms }], this.state.query, lastResponse?.hiddenReentrance)
+            this.state.options.sendUni(
+							seg.id,
+							{
+								path: [{ nonce, terms: seg.terms }],
+								participants: [participant],
+								externalReferees: this.state.options.externalReferees
+							},
+							this.state.query,
+							lastResponse?.hiddenReentrance)
         );
     }
 }

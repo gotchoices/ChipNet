@@ -1,19 +1,19 @@
 import { UniRequest } from "./unidirectional/request";
 import { UniResponse } from "./unidirectional/response";
 
-export interface PhaseResponse {
+export interface SequenceResponse {
     results: UniResponse[];
     failures: Record<string, string>;
     actualTime: number;
 }
 
-export class PhaseOptions {
+export class SequenceOptions {
     minTime: number = 30;
     maxTime: number = 500;
     minRatio: number = 0.6;
 }
 
-export async function waitPhase(baseTime: number, requests: Record<string, UniRequest>, options: PhaseOptions) {
+export async function sequenceStep(baseTime: number, requests: Record<string, UniRequest>, options: SequenceOptions) {
     const startTime = Date.now();
     const responses: UniResponse[] = [];
     const failures: Record<string, string> = {};
@@ -25,7 +25,7 @@ export async function waitPhase(baseTime: number, requests: Record<string, UniRe
     const promises = Object.entries(requests).map(async ([link, request]) => {
         try {
             const response = await request.response;
-            const uniResponse = new UniResponse(link, response.routes, response.hiddenReentrance);
+            const uniResponse = new UniResponse(link, response.plans, response.hiddenReentrance);
             responses.push(uniResponse);
             return uniResponse;
         } catch (error) {
@@ -47,7 +47,7 @@ export async function waitPhase(baseTime: number, requests: Record<string, UniRe
         new Promise<UniResponse[]>(resolve => setTimeout(() => resolve(responses), baseTime + options.maxTime)),
         minTimePromise.then(() => wrappedPromise)
     ]);
-    return { results, failures, actualTime: Date.now() - startTime } as PhaseResponse;
+    return { results, failures, actualTime: Date.now() - startTime } as SequenceResponse;
 
     function passesThreshold() {
         return (responses.length + Object.keys(failures).length) === promises.length

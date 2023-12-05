@@ -1,17 +1,19 @@
-import { PhaseResponse } from "../phase";
-import { UniRoute, UniLink } from "../route";
+import { SequenceResponse } from "../sequencing";
+import { Plan } from "../plan";
+import { PrivateLink } from "../private-link";
 import { Nonce } from "../types";
 import { UniParticipantOptions } from "./participant-options";
 import { UniQuery } from "./query";
 
 export interface UniSearchResult {
-    route?: UniRoute;
-    candidates?: UniLink[];
+	route?: Plan;
+	candidates?: PrivateLink[];
 }
 
-export interface IUniParticipantState {
-    options: UniParticipantOptions;
-    completePhase(phaseResponse: PhaseResponse): Promise<void>;
-    reportCycles(collisions: string[]): Promise<void>;
-    search(path: UniRoute, query: UniQuery): Promise<UniSearchResult>;
+export interface UniParticipantState {
+	options: UniParticipantOptions;
+	completePhase(phaseResponse: SequenceResponse): Promise<void>;
+	reportCycles(collisions: string[]): Promise<void>;
+	search(plan: Plan, query: UniQuery): Promise<UniSearchResult>;
+	negotiatePlan(p: Plan): Promise<Plan>;
 }
