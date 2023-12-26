@@ -8,8 +8,3 @@
 * Balance advertising
 * Consider allowing for publicly identifiable links (don't nonce encode)
 * Support local state as well as current reentrance ticket
-
-Transactions:
-* Have originator verify that target's signature matches target's PK as given by its address
-* Verify PK matches SK for specific path during promise
-* Identity verification "whispering" (hash of identity information shared with peer of peer using PK)

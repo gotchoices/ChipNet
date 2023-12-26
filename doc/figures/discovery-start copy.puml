@@ -1,0 +1,18 @@
+@startuml
+left to right direction
+
+node "N1 (originator)" as N1 #LightBlue
+node N2
+node N3
+
+N1 <-- N2 : L1
+N1 <-- N3 : L2
+N1 -[#Red]-> N2
+
+note top of N1
+  Query: N5?
+	Level: 1
+end note
+
+
+@enduml

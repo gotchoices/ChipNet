@@ -14,3 +14,4 @@ export * from './bidirectional/originator.js';
 export * from './types.js';
 export * from './private-link.js';
 export * from './transaction-id-options.js';
+export * from './transaction-id.js';
