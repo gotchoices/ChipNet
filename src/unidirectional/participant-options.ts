@@ -1,10 +1,10 @@
 import { SendUniFunc } from "./callbacks";
-import { SequenceOptions } from "../sequencing";
+import { StepOptions } from "../sequencing";
 import { ExternalReferee } from "../plan";
 
 export class UniParticipantOptions {
     maxAgeGap = 10000; // No longer than this between subsequent queries
-    phaseOptions = new SequenceOptions();
+    stepOptions = new StepOptions();
 
     constructor (
         public key: Buffer,     // 256 bit encryption key for hidden information (e.g. crypto.randomBytes(32))

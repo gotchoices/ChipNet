@@ -1,0 +1,21 @@
+@startuml
+left to right direction
+
+node N1 #LightGreen
+node N2 #LightGreen
+node N3 #LightGreen
+node N4 #LightGreen
+node N5 #LightGreen
+
+N1 -[#Gray]- N2
+N1 -[#Silver]- N3 : X
+N1 -[#Silver]- N4 : X
+N1 -[#Gray]- N5
+N2 -[#Gray]- N3
+N2 -[#Silver]- N4 : X
+N2 -[#Silver]- N5 : X
+N3 -[#Gray]- N4
+N3 -[#Silver]- N5 : X
+N4 -[#Gray]- N5
+
+@enduml

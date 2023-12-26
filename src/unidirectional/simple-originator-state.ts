@@ -4,7 +4,7 @@ import { UniResponse } from "./response";
 import { UniQuery } from "./query";
 import { generateTransactionId, nonceFromLink } from "../transaction-id";
 import { UniOriginatorState } from "./originator-state";
-import { SequenceResponse } from "../sequencing";
+import { StepResponse } from "../sequencing";
 import { PrivateLink } from "../private-link";
 import { Terms } from "../types";
 import { PrivateTarget, PublicTarget, TargetSecret } from "../target";
@@ -51,15 +51,19 @@ export class SimpleUniOriginatorState implements UniOriginatorState {
 		}
 	}
 
+	async getKeyPair() {
+		return this._keyPair;
+	}
+
 	async getDepth(): Promise<number> {
 		return this._lastDepth;
 	}
 
-	async startPhase(depth: number) {
+	async startStep(depth: number) {
 		this._lastDepth = depth;
 	}
 
-	async completePhase(phaseResponse: SequenceResponse) {
+	async completeStep(phaseResponse: StepResponse) {
 		Object.entries(phaseResponse.failures).forEach(([link, error]) =>
 			this.addFailure(link, error));
 
@@ -78,7 +82,7 @@ export class SimpleUniOriginatorState implements UniOriginatorState {
 		return this.peerLinks;
 	}
 
-	async getRoutes() {
+	async getPlans() {
 		return Object.entries(this._responses)
 			.flatMap(([link, response]) => response.plans.flatMap(p => response.plans))
 	}

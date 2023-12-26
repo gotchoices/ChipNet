@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { describe, expect, test, it, beforeEach } from '@jest/globals';
 import crypto from 'crypto';
 import { UniOriginator } from '../src/unidirectional/originator';
@@ -51,8 +50,10 @@ beforeEach(() => {
 		};
 	}
 
+	const originatorOptions = new UniOriginatorOptions(getSendUni(originatorNode), true);
+	originatorOptions.stepOptions.maxTime = 100000;	// LONG TIMEOUT FOR DEBUGGING
 	const originatorState = new SimpleUniOriginatorState(
-		new UniOriginatorOptions(getSendUni(originatorNode), true),
+		originatorOptions,
 		network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
 		{ address: { key: 'N3' } },
 		{ balance: 100 }
@@ -62,15 +63,17 @@ beforeEach(() => {
 
 	participantStates = network.nodes
 		.reduce((c, node) => {
+			const participantOptions = new UniParticipantOptions(crypto.randomBytes(32), getSendUni(node), true, []);
+			participantOptions.stepOptions.maxTime = 100000;	// LONG TIMEOUT FOR DEBUGGING
 			c[node.name] = new SimpleUniParticipantState(
-				new UniParticipantOptions(crypto.randomBytes(32), getSendUni(node), true, []),
+				participantOptions,
 				network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
 				(linkTerms, queryTerms) =>
 					linkTerms['balance'] >= queryTerms['balance']
 						? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
 						: undefined,
 				network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, linkId: l.name })),
-				node.name
+				{ key: node.name }
 			);
 			return c;
 		}, {} as Record<string, UniParticipantState>);
@@ -99,6 +102,7 @@ describe('Simple discovery', () => {
 
 	/* TODO: tests for:
 		* Finding at different terms.balance levels
+		* Multiple simultaneous queries/transactions
 		* Not found scenarios
 		* Finding at different depths
 		* Finding multiple routes

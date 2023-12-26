@@ -1,11 +1,11 @@
 import { SendUniFunc } from "./callbacks";
-import { SequenceOptions } from "../sequencing";
+import { StepOptions } from "../sequencing";
 import { TransactionIdOptions } from "../transaction-id-options";
 import { ExternalReferee } from "../plan";
 
 export class UniOriginatorOptions {
     maxDepth: number = 8;
-    phaseOptions = new SequenceOptions();
+    stepOptions = new StepOptions();
     transactionIdOptions = new TransactionIdOptions();
 
     constructor(

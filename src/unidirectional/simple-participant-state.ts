@@ -1,5 +1,5 @@
 import { MatchTermsFunc, SendUniFunc } from "./callbacks";
-import { SequenceResponse } from "../sequencing";
+import { StepResponse } from "../sequencing";
 import { PrivateLink } from "../private-link";
 import { nonceFromLink } from "../transaction-id";
 import { UniParticipantOptions } from "./participant-options";
@@ -13,7 +13,7 @@ import { KeyPair, generateKeyPair } from "../asymmetric";
 export interface PeerAddress {
 	address: Address;
 	selfReferee: boolean;					// Referee preferences of the peer
-	externalReferees?: string[];
+	externalReferees?: ExternalReferee[];
 	linkId: string;
 }
 
@@ -45,6 +45,10 @@ export class SimpleUniParticipantState implements UniParticipantState {
 		}
 	}
 
+	async getKeyPair() {
+		return this._keyPair;
+	}
+
 	async reportCycles(collisions: string[]) {
 		this._cycles.push(...collisions);
 	}
@@ -70,7 +74,7 @@ export class SimpleUniParticipantState implements UniParticipantState {
 			return { path: [], participants: [participant], externalReferees: this.options.externalReferees } as Plan;
 		}
 
-		const peersForKey = this.peerAddresses ? this.peerAddresses[query.target.address.key] : undefined;
+		const peersForKey = this.peerAddresses ? this._peerIdentitiesByKey[query.target.address.key] : undefined;
 		const peer = peersForKey && peersForKey.find(p => addressesMatch(p.address, query.target.address));
 		const match = this._peerLinksById[peer?.linkId];
 		const terms = match ? this.matchTerms(match.terms, query.terms) : undefined;
@@ -113,7 +117,7 @@ export class SimpleUniParticipantState implements UniParticipantState {
 		this._responses[link] = response;
 	}
 
-	async completePhase(phaseResponse: SequenceResponse) {
+	async completeStep(phaseResponse: StepResponse) {
 		Object.entries(phaseResponse.failures).forEach(([link, error]) =>
 			this.addFailure(link, error));
 

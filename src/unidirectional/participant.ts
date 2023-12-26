@@ -90,12 +90,12 @@ export class UniParticipant {
 
         const requests = this.candidateRequests(plan, query, reentrance.c);
 
-        const baseTime = Math.max((reentrance.d - 1) * this.state.options.phaseOptions.minTime, reentrance.ld ?? 0);
-        const phaseResponse = await sequenceStep(baseTime, requests, this.state.options.phaseOptions);
+        const baseTime = Math.max((reentrance.d - 1) * this.state.options.stepOptions.minTime, reentrance.ld ?? 0);
+        const stepResponse = await sequenceStep(baseTime, requests, this.state.options.stepOptions);
 
-        await this.state.completePhase(phaseResponse);
+        await this.state.completeStep(stepResponse);
 
-        let plans = phaseResponse.results.flatMap(r => r.plans);
+        let plans = stepResponse.results.flatMap(r => r.plans);
 
         if (plans.length) {
 					plans = await Promise.all(plans.map(p => this.state.negotiatePlan(p)));
@@ -109,10 +109,10 @@ export class UniParticipant {
                 ? undefined
                 : encryptObject({
                         d: reentrance.d + 1,
-                        c: phaseResponse.results.map(r => ({ l: r.link, t: reentrance.c.find(c => c.l === r.link).t, h: r.hiddenReentrance } as UnhiddenCandidate)),
+                        c: stepResponse.results.map(r => ({ l: r.link, t: reentrance.c.find(c => c.l === r.link).t, h: r.hiddenReentrance } as UnhiddenCandidate)),
                         tid: query.transactionId,
                         ct: Date.now(),
-                        ld: phaseResponse.actualTime
+                        ld: stepResponse.actualTime
                     } as UnhiddenQueryData,
                     this.state.options.key),
         } as SendUniResponse;
