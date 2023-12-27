@@ -3,7 +3,7 @@
 * Key and resource lifetime hooks (hold at promise, release at majority vote received)
 * Persist and rehydrate unfinished requests on participant like is done on originator
 * License
-* Maintain TransactionId history to validate TransactionId uniqueness
+* Maintain SessionId history to validate SessionId uniqueness
 * Quotas & metrics
 * Balance advertising
 * Consider allowing for publicly identifiable links (don't nonce encode)

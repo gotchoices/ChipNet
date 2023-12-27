@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { TransactionIdOptions } from './transaction-id-options';
+import { SessionIdOptions as SessionIdOptions } from './session-id-options';
 
 export function checkSaltLength(salt: string, minLength: number): boolean {
     return Buffer.byteLength(salt, 'base64') >= minLength;
@@ -105,8 +105,8 @@ export function runsTest(salt: string, threshold: number): boolean {
     return p_value > threshold;
 }
 
-/** Ensures that the given salt passes all of the tests for a Transaction ID */
-export function validateTransactionId(salt: string, options: TransactionIdOptions) {
+/** Ensures that the given salt passes all of the tests for a Session ID */
+export function validateSessionId(salt: string, options: SessionIdOptions) {
     return checkSaltLength(salt, options.length)
         && calculateShannonEntropy(salt) >= options.minEntropy
         && frequencyTest(salt, options.frequencyPValueThreshold)
@@ -114,27 +114,27 @@ export function validateTransactionId(salt: string, options: TransactionIdOption
 }
 
 /**
- * Generates a unique Transaction ID with sufficient entropy based on the given options.
- * @throws An error if a Transaction ID with sufficient entropy cannot be generated within the maximum number of tries specified in the options.
+ * Generates a unique Session ID with sufficient entropy based on the given options.
+ * @throws An error if a Session ID with sufficient entropy cannot be generated within the maximum number of tries specified in the options.
  */
-export function generateTransactionId(options: TransactionIdOptions) {
+export function generateSessionId(options: SessionIdOptions) {
     var candidate: string;
     var tries = 0;
     do {
         if (tries > options.maxGenerateTries) {
-            throw new Error('Unable to generate a Transaction ID with sufficient randomness');
+            throw new Error('Unable to generate a Sessions ID with sufficient randomness');
         }
         candidate = crypto.randomBytes(options.length).toString('base64');
         ++tries;
-    } while (!validateTransactionId(candidate, options));
+    } while (!validateSessionId(candidate, options));
     return candidate;
 }
 
 /**
- * Generate anonymized identifier using a Transaction ID as a salt
+ * Generate anonymized identifier using a Session ID as a salt
  */
-export function nonceFromLink(link: string, transactionId: string) {
+export function nonceFromLink(link: string, sessionId: string) {
     return crypto.createHash('sha256')
-        .update(link + transactionId)
+        .update(link + sessionId)
         .digest('base64');
 }

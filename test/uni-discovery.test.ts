@@ -102,7 +102,7 @@ describe('Simple discovery', () => {
 
 	/* TODO: tests for:
 		* Finding at different terms.balance levels
-		* Multiple simultaneous queries/transactions
+		* Multiple simultaneous queries/sessions
 		* Not found scenarios
 		* Finding at different depths
 		* Finding multiple routes

@@ -1,21 +1,21 @@
 /**
- * Represents the options for generating and validating transaction IDs.
+ * Represents the options for generating and validating session IDs.
  */
-export class TransactionIdOptions {
+export class SessionIdOptions {
     /**
-     * The minimum entropy required for the generated transaction ID.
+     * The minimum entropy required for the generated session ID.
      * Default value is 0.995, which represents 99.5% of the maximum entropy.
      */
     minEntropy = 0.995;
 
     /**
-     * The length of the generated transaction ID in bytes.
+     * The length of the generated session ID in bytes.
      * Default value is 32.
      */
     length = 32;
 
     /**
-     * The maximum number of attempts to generate a valid transaction ID (with enough randomness) before erroring.
+     * The maximum number of attempts to generate a valid session ID (with enough randomness) before erroring.
      * Default value is 100.
      */
     maxGenerateTries = 100;

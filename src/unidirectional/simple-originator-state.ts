@@ -2,7 +2,7 @@ import { UniOriginatorOptions } from "./originator-options";
 import { UniRequest } from "./request";
 import { UniResponse } from "./response";
 import { UniQuery } from "./query";
-import { generateTransactionId, nonceFromLink } from "../transaction-id";
+import { generateSessionId, nonceFromLink } from "../session-id";
 import { UniOriginatorState } from "./originator-state";
 import { StepResponse } from "../sequencing";
 import { PrivateLink } from "../private-link";
@@ -32,12 +32,12 @@ export class SimpleUniOriginatorState implements UniOriginatorState {
 		public targetAddress?: string,	// Optional target physical address
 	) {
 		this._keyPair = generateKeyPair();
-		const transactionId = generateTransactionId(this.options.transactionIdOptions);
+		const sessionId = generateSessionId(this.options.sessionIdOptions);
 		const secret = target.unsecret ? encryptWithPublicKey(this._keyPair.publicKey, JSON.stringify(target.unsecret)) : undefined;
 		const publicTarget = { address: target.address, secret } as PublicTarget;
-		this._query = { target: publicTarget, transactionId: transactionId, terms: this.terms };
+		this._query = { target: publicTarget, sessionId: sessionId, terms: this.terms };
 		this._noncesByLink = this.peerLinks.reduce((c, link) => {
-			c[link.id] = nonceFromLink(link.id, transactionId);;
+			c[link.id] = nonceFromLink(link.id, sessionId);;
 			return c;
 		}, {} as Record<string, string>
 		);

@@ -1,7 +1,7 @@
 import { MatchTermsFunc, SendUniFunc } from "./callbacks";
 import { StepResponse } from "../sequencing";
 import { PrivateLink } from "../private-link";
-import { nonceFromLink } from "../transaction-id";
+import { nonceFromLink } from "../session-id";
 import { UniParticipantOptions } from "./participant-options";
 import { UniParticipantState, UniSearchResult } from "./participant-state";
 import { UniQuery } from "./query";
@@ -80,7 +80,7 @@ export class SimpleUniParticipantState implements UniParticipantState {
 		const terms = match ? this.matchTerms(match.terms, query.terms) : undefined;
 		return match && terms
 			? await this.negotiatePlan({
-					path: [...plan.path, { nonce: nonceFromLink(match.id, query.transactionId), terms } as PublicLink],
+					path: [...plan.path, { nonce: nonceFromLink(match.id, query.sessionId), terms } as PublicLink],
 					participants: [{ key: peer.address.key, isReferee: peer.selfReferee }],
 					externalReferees: peer.externalReferees
 			})

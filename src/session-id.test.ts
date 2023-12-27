@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { describe, expect, test } from '@jest/globals';
-import { bufferToBinaryString, calculateShannonEntropy, frequencyTest, generateTransactionId, runsTest, validateTransactionId } from '../src/transaction-id';
-import { TransactionIdOptions } from './transaction-id-options';
+import { bufferToBinaryString, calculateShannonEntropy, frequencyTest, generateSessionId, runsTest, validateSessionId } from './session-id';
+import { SessionIdOptions } from './session-id-options';
 import crypto from 'crypto';
 
 describe('runsTest', () => {
@@ -55,10 +55,10 @@ function binaryStringToBase64(binaryString: string): string {
 	return base64String;
 }
 
-describe('validateTransactionId', () => {
-	test('Informational: how many random transaction IDs pass validation', () => {
-		// generate 1000 random transaction IDs and see how often they pass validation
-		const options = new TransactionIdOptions();
+describe('validateSessionId', () => {
+	test('Informational: how many random session IDs pass validation', () => {
+		// generate 1000 random session IDs and see how often they pass validation
+		const options = new SessionIdOptions();
 		let valid = [0,0,0,0];
 		for (let i = 0; i < 1000; i++) {
 			const tid = crypto.randomBytes(32).toString('base64');
@@ -78,20 +78,20 @@ describe('validateTransactionId', () => {
 		console.log(`${valid[3]} of 1000 passed all tests`);
 	});
 
-	test('should return true for a valid transaction ID', () => {
+	test('should return true for a valid session ID', () => {
 		const salt = '0SIAThaOI0FNxD48wx1M9zkwfaIWVi3ugu0hrNqvsGI='; // Example salt input
-		const options = new TransactionIdOptions();
+		const options = new SessionIdOptions();
 
-		const result = validateTransactionId(salt, options);
+		const result = validateSessionId(salt, options);
 
 		expect(result).toBe(true);
 	});
 
-	test('should return false for an invalid transaction ID', () => {
+	test('should return false for an invalid session ID', () => {
 		const salt = 'AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSTTUUVV='; // Example salt input
-		const options = new TransactionIdOptions();
+		const options = new SessionIdOptions();
 
-		const result = validateTransactionId(salt, options);
+		const result = validateSessionId(salt, options);
 
 		expect(result).toBe(false);
 	});

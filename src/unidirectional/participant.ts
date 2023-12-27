@@ -2,7 +2,7 @@ import { decryptObject, encryptObject } from "../symmetric";
 import { SendUniResponse } from "./callbacks";
 import { sequenceStep } from "../sequencing";
 import { PrivateLink } from "../private-link";
-import { nonceFromLink } from "../transaction-id";
+import { nonceFromLink } from "../session-id";
 import { Terms } from "../types";
 import { UniParticipantState } from "./participant-state";
 import { UniQuery } from "./query";
@@ -23,8 +23,8 @@ interface UnhiddenQueryData {
     d: number,
     /** Candidates */
     c: UnhiddenCandidate[],
-    /** TransactionID - should match query.TransactionId */
-    tid: string,
+    /** SessionID - should match query.SessionId */
+    sid: string,
     /** Current time */
     ct: number,
     /** Last duration (undefined = 0) */
@@ -55,7 +55,7 @@ export class UniParticipant {
             hiddenReentrance: encryptObject({
 									d: 1,
 									c: candidates.map(c => ({ l: c.id, t: c.terms } as UnhiddenCandidate)),
-									tid: query.transactionId,
+									sid: query.sessionId,
 									ct: Date.now()
 							} as UnhiddenQueryData,
 							this.state.options.key)
@@ -66,7 +66,7 @@ export class UniParticipant {
     private async filterCandidates(candidates: PrivateLink[], plan: Plan, query: UniQuery) {
         const cycles: Record<string, boolean> = {};
         candidates.forEach(c => {
-            const nonce = nonceFromLink(c.id, query.transactionId);
+            const nonce = nonceFromLink(c.id, query.sessionId);
             if (plan.path.some(p => p.nonce === nonce)) {
                 cycles[nonce] = true;
             }
@@ -77,7 +77,7 @@ export class UniParticipant {
             await this.state.reportCycles(Object.keys(cycles));
         }
 
-        return candidates.filter(c => !cycles[nonceFromLink(c.id, query.transactionId)]);
+        return candidates.filter(c => !cycles[nonceFromLink(c.id, query.sessionId)]);
     }
 
     async queryNextPhase(plan: Plan, query: UniQuery, hiddenReentrance: Uint8Array): Promise<SendUniResponse> {
@@ -110,7 +110,7 @@ export class UniParticipant {
                 : encryptObject({
                         d: reentrance.d + 1,
                         c: stepResponse.results.map(r => ({ l: r.link, t: reentrance.c.find(c => c.l === r.link).t, h: r.hiddenReentrance } as UnhiddenCandidate)),
-                        tid: query.transactionId,
+                        sid: query.sessionId,
                         ct: Date.now(),
                         ld: stepResponse.actualTime
                     } as UnhiddenQueryData,
@@ -121,7 +121,7 @@ export class UniParticipant {
     candidateRequests(plan: Plan, query: UniQuery, candidates: UnhiddenCandidate[]) {
         return candidates.map(c =>
             new UniRequest(c.l,
-                this.state.options.sendUni(c.l, { ...plan, path: [...plan.path, { nonce: nonceFromLink(c.l, query.transactionId), terms: c.t }] }, query, c.h))
+                this.state.options.sendUni(c.l, { ...plan, path: [...plan.path, { nonce: nonceFromLink(c.l, query.sessionId), terms: c.t }] }, query, c.h))
             ).reduce((c, r) => { c[r.link] = r; return c; }, {} as Record<string, UniRequest>)
     }
 
@@ -131,7 +131,7 @@ export class UniParticipant {
             return false;
         }
         // Ensure that the tid matches
-        if (reentrance.tid !== query.transactionId) {
+        if (reentrance.sid !== query.sessionId) {
             return false;
         }
         // Ensure that the time is not too old

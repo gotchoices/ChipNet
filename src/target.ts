@@ -9,7 +9,7 @@ export function addressesMatch(a1: Address, a2: Address) {
 
 export interface TargetSecret {
 	identity?: string;		// optional hidden identity at the target
-	originatorAddress?: string;	// physical address of the originator (connection uses transaction ID to connect)
+	originatorAddress?: string;	// physical address of the originator (connection uses session ID to connect)
 	reference?: string;	// reference info (e.g. invoice #) to give to the target
 }
 

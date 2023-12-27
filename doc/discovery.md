@@ -12,22 +12,22 @@ There are two general types of discovery:
 The target address is opaque to this protocol.  Note that various address scenarios are possible:
 * *Indirect* – discovery by finding a node that "knows" of the node.  This is effecient, because search doesn't have to progress to the node itself.
 * *Direct or Hidden* – search proceeds to the node itself.  This might be useful if the node itself needs to approve the request, or for maximum anonymity.
-* *Anonymized indirect* – The target node provides to the originator initializes the transaction ID uses it to generate an anonymizing hash if it indirect address (as known to its peer).  This allo
+* *Anonymized indirect* – The target node provides to the originator initializes the session ID uses it to generate an anonymizing hash if it indirect address (as known to its peer).  This allo
 
 ## Links
 
 A link identifies a directed edge (e.g. tally in MyCHIPs), between nodes.  Note that there may be multiple links that lead to and from the same node.  This is unrelated to a communications link.
 
-## Nonces & Transaction IDs
+## Nonces & Session IDs
 
-A nonce, for the purpose of this library, is an anonymized (hashed and salted) link identifier.  Each query has a Transaction ID, which is a cryptographically random salt used to generate the hashed nonce, which acts as a surrogate identifier for participants in the transaction.  The nonce is produced by getting the base64 encoding of the SHA-256 hash of the link prepended to the Transaction ID.
+A nonce, for the purpose of this library, is an anonymized (hashed and salted) link identifier.  Each query has a Session ID, which is a cryptographically random salt used to generate the hashed nonce, which acts as a surrogate identifier for participants in the session.  The nonce is produced by getting the base64 encoding of the SHA-256 hash of the link prepended to the Session ID.
 
 ## Reentrance tickets
 
 Encrypted binary block containing state data necessary to continue search at depth > 1:
 * Depth (will be 1 after first query)
 * Candidate links
-* TransactionID - ensure that it matches
+* SessionID - ensure that it matches
 * Current time - don't run stale queries
 
 The encryption is based on an aes-256 key which is given as part of configuration options.
