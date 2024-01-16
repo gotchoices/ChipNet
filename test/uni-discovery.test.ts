@@ -2,10 +2,10 @@ import { describe, expect, test, it, beforeEach } from '@jest/globals';
 import crypto from 'crypto';
 import { UniOriginator } from '../src/unidirectional/originator';
 import { UniParticipant } from '../src/unidirectional/participant';
-import { UniQuery } from '../src/unidirectional/query';
+import { type UniQuery } from '../src/unidirectional/query';
 import { TestNetwork, TestNode, TestLink } from './test-network';
-import { SimpleUniOriginatorState } from '../src/unidirectional/simple-originator-state';
-import { SimpleUniParticipantState } from '../src/unidirectional/simple-participant-state';
+import { MemoryUniOriginatorState } from '../src/unidirectional/memory-originator-state';
+import { MemoryUniParticipantState } from '../src/unidirectional/memory-participant-state';
 import { UniOriginatorOptions } from '../src/unidirectional/originator-options';
 import { UniParticipantOptions } from '../src/unidirectional/participant-options';
 import { Plan } from '../src/plan';
@@ -52,7 +52,7 @@ beforeEach(() => {
 
 	const originatorOptions = new UniOriginatorOptions(getSendUni(originatorNode), true);
 	originatorOptions.stepOptions.maxTime = 100000;	// LONG TIMEOUT FOR DEBUGGING
-	const originatorState = new SimpleUniOriginatorState(
+	const originatorState = new MemoryUniOriginatorState(
 		originatorOptions,
 		network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
 		{ address: { key: 'N3' } },
@@ -65,7 +65,7 @@ beforeEach(() => {
 		.reduce((c, node) => {
 			const participantOptions = new UniParticipantOptions(crypto.randomBytes(32), getSendUni(node), true, []);
 			participantOptions.stepOptions.maxTime = 100000;	// LONG TIMEOUT FOR DEBUGGING
-			c[node.name] = new SimpleUniParticipantState(
+			c[node.name] = new MemoryUniParticipantState(
 				participantOptions,
 				network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
 				(linkTerms, queryTerms) =>

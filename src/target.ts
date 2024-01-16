@@ -1,5 +1,5 @@
 export interface Address {
-	key: string;				// perminant or ephemeral public key of target
+	key: string;				// permanent or ephemeral public key of target
 	identity?: string;	// optional public identity at target, if key doesn't completely identify the target
 }
 
@@ -9,7 +9,7 @@ export function addressesMatch(a1: Address, a2: Address) {
 
 export interface TargetSecret {
 	identity?: string;		// optional hidden identity at the target
-	originatorAddress?: string;	// physical address of the originator (connection uses session ID to connect)
+	originatorAddress?: string;	// logical and possibly physical address of the originator (connection uses session ID to connect)
 	reference?: string;	// reference info (e.g. invoice #) to give to the target
 }
 

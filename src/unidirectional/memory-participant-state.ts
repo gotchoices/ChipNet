@@ -1,14 +1,14 @@
 import { MatchTermsFunc, SendUniFunc } from "./callbacks";
 import { StepResponse } from "../sequencing";
 import { PrivateLink } from "../private-link";
-import { nonceFromLink } from "../session-id";
 import { UniParticipantOptions } from "./participant-options";
 import { UniParticipantState, UniSearchResult } from "./participant-state";
 import { UniQuery } from "./query";
 import { UniResponse } from "./response";
 import { ExternalReferee, Participant, Plan, PublicLink } from "../plan";
 import { Address, addressesMatch } from "../target";
-import { KeyPair, generateKeyPair } from "../asymmetric";
+import { makeNonce } from "chipcode";
+import { Asymmetric, KeyPairBin, arrayToBase64 } from "chipcryptbase";
 
 export interface PeerAddress {
 	address: Address;
@@ -17,23 +17,24 @@ export interface PeerAddress {
 	linkId: string;
 }
 
-export class SimpleUniParticipantState implements UniParticipantState {
+export class MemoryUniParticipantState implements UniParticipantState {
 	private _cycles: string[] = [];
 	private _responses: Record<string, UniResponse> = {};
 	private _failures: Record<string, string> = {};  // TODO: structured error information
 	private _phaseTime: number = 0;
 	private _peerLinksById: Record<string, PrivateLink> = {};
 	private _peerIdentitiesByKey: Record<string, PeerAddress[]> = {};
-	private _keyPair: KeyPair;
+	private _keyPair: KeyPairBin;
 
 	constructor(
 		public options: UniParticipantOptions,
 		public peerLinks: PrivateLink[],
 		public matchTerms: MatchTermsFunc,
+		private asymmetric: Asymmetric,
 		public peerAddresses?: PeerAddress[],  	// List of peer addresses, and their link mappings
 		public selfAddress?: Address,           // Identity for this node (should provide this or peerIdentities or both)
 	) {
-		this._keyPair = generateKeyPair();
+		this._keyPair = asymmetric.generateKeyPairBin();
 		peerLinks.forEach(l => this._peerLinksById[l.id] = l);
 		if (peerAddresses) {
 			peerAddresses.forEach(i => {
@@ -61,7 +62,7 @@ export class SimpleUniParticipantState implements UniParticipantState {
 
 	private async getParticipant(): Promise<Participant> {
 		return {
-			key: this._keyPair.publicKey,
+			key: arrayToBase64(this._keyPair.publicKey),
 			isReferee: this.options.selfReferee,
 			// secret - we do not need this
 		}
@@ -80,7 +81,7 @@ export class SimpleUniParticipantState implements UniParticipantState {
 		const terms = match ? this.matchTerms(match.terms, query.terms) : undefined;
 		return match && terms
 			? await this.negotiatePlan({
-					path: [...plan.path, { nonce: nonceFromLink(match.id, query.sessionId), terms } as PublicLink],
+					path: [...plan.path, { nonce: makeNonce(match.id, query.sessionCode), terms } as PublicLink],
 					participants: [{ key: peer.address.key, isReferee: peer.selfReferee }],
 					externalReferees: peer.externalReferees
 			})

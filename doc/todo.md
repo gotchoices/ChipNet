@@ -3,7 +3,7 @@
 * Key and resource lifetime hooks (hold at promise, release at majority vote received)
 * Persist and rehydrate unfinished requests on participant like is done on originator
 * License
-* Maintain SessionId history to validate SessionId uniqueness
+* Maintain SessionCode history to validate SessionCode uniqueness
 * Quotas & metrics
 * Balance advertising
 * Consider allowing for publicly identifiable links (don't nonce encode)

@@ -27,7 +27,7 @@ A nonce, for the purpose of this library, is an anonymized (hashed and salted) l
 Encrypted binary block containing state data necessary to continue search at depth > 1:
 * Depth (will be 1 after first query)
 * Candidate links
-* SessionID - ensure that it matches
+* SessionCode - ensure that it matches
 * Current time - don't run stale queries
 
 The encryption is based on an aes-256 key which is given as part of configuration options.

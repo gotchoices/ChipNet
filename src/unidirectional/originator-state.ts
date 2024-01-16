@@ -5,7 +5,7 @@ import { UniRequest } from "./request";
 import { StepResponse } from "../sequencing";
 import { PrivateLink } from "../private-link";
 import { Participant, Plan } from "../plan";
-import { KeyPair } from "../asymmetric";
+import { KeyPairBin } from "chipcryptbase";
 
 // TODO: consider using Record or Iterable when they are available in js, for immutability and scaling
 // TODO: make all of these async
@@ -26,5 +26,5 @@ export interface UniOriginatorState {
 	shouldAdvance(link: string): Promise<boolean>;
 	getNonce(link: string): string;
 	getParticipant(): Promise<Participant>;
-	getKeyPair(): Promise<KeyPair>;
+	getKeyPair(): Promise<KeyPairBin>;
 }

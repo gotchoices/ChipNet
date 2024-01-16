@@ -2,17 +2,17 @@ import { UniOriginatorOptions } from "./originator-options";
 import { UniRequest } from "./request";
 import { UniResponse } from "./response";
 import { UniQuery } from "./query";
-import { generateSessionId, nonceFromLink } from "../session-id";
 import { UniOriginatorState } from "./originator-state";
 import { StepResponse } from "../sequencing";
 import { PrivateLink } from "../private-link";
 import { Terms } from "../types";
 import { PrivateTarget, PublicTarget, TargetSecret } from "../target";
 import { Participant } from "../plan";
-import { KeyPair, encryptWithPublicKey, generateKeyPair } from "../asymmetric";
+import { generateCode, makeNonce }	from "chipcode";
+import { Asymmetric, KeyPairBin, arrayToBase64 } from "chipcryptbase";
 
 /** Simple memory based implementation of Uni state */
-export class SimpleUniOriginatorState implements UniOriginatorState {
+export class MemoryUniOriginatorState implements UniOriginatorState {
 	private _responses: Record<string, UniResponse> = {};
 	private _outstanding: Record<string, UniRequest> = {};
 	private _failures: Record<string, string> = {};  // TODO: structured error information
@@ -20,7 +20,7 @@ export class SimpleUniOriginatorState implements UniOriginatorState {
 	private _noncesByLink: Record<string, string>;
 	private _lastTime = 0;
 	private _lastDepth = 1;
-	private _keyPair: KeyPair;
+	private _keyPair: KeyPairBin;
 
 	get query() { return this._query; }
 
@@ -29,15 +29,16 @@ export class SimpleUniOriginatorState implements UniOriginatorState {
 		public peerLinks: PrivateLink[],
 		public target: PrivateTarget,  // Target address and other information
 		public terms: Terms,   // Arbitrary query data to be passed to the target for matching
+		public asymmetric: Asymmetric,	// Asymmetric crypto implementation
 		public targetAddress?: string,	// Optional target physical address
 	) {
-		this._keyPair = generateKeyPair();
-		const sessionId = generateSessionId(this.options.sessionIdOptions);
-		const secret = target.unsecret ? encryptWithPublicKey(this._keyPair.publicKey, JSON.stringify(target.unsecret)) : undefined;
+		this._keyPair = asymmetric.generateKeyPairBin();
+		const sessionCode = generateCode(this.options.codeOptions);
+		const secret = target.unsecret ? asymmetric.encryptWithPublicKey(this._keyPair.publicKey, JSON.stringify(target.unsecret)) : undefined;
 		const publicTarget = { address: target.address, secret } as PublicTarget;
-		this._query = { target: publicTarget, sessionId: sessionId, terms: this.terms };
+		this._query = { target: publicTarget, sessionCode, terms: this.terms };
 		this._noncesByLink = this.peerLinks.reduce((c, link) => {
-			c[link.id] = nonceFromLink(link.id, sessionId);;
+			c[link.id] = makeNonce(link.id, sessionCode);;
 			return c;
 		}, {} as Record<string, string>
 		);
@@ -45,7 +46,7 @@ export class SimpleUniOriginatorState implements UniOriginatorState {
 
 	async getParticipant(): Promise<Participant> {
 		return {
-			key: this._keyPair.publicKey,
+			key: arrayToBase64(this._keyPair.publicKey),
 			isReferee: this.options.selfReferee,
 			// secret - we do not need this
 		}

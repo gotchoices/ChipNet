@@ -1,12 +1,12 @@
 import { SendUniFunc } from "./callbacks";
 import { StepOptions } from "../sequencing";
-import { SessionIdOptions } from "../session-id-options";
 import { ExternalReferee } from "../plan";
+import { CodeOptions } from "chipcode";
 
 export class UniOriginatorOptions {
     maxDepth: number = 8;
     stepOptions = new StepOptions();
-    sessionIdOptions = new SessionIdOptions();
+    codeOptions = new CodeOptions();
 
     constructor(
         public sendUni: SendUniFunc,

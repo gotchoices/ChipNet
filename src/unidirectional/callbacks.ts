@@ -10,7 +10,7 @@ export interface SendUniResponse {
 /**
  * Sends a Uni lift request to the peer identified by the link
  * @param link The link identifier of the peer to send the request to
- * @param plan The path nonces (SessionId anonymized links) of all parent edges encountered so far, and other terms
+ * @param plan The path nonces (SessionCode anonymized links) of all parent edges encountered so far, and other terms
  * @param query Original query from originator
  * @param hiddenReentrance The encrypted reentrance data returned by the peer from prior request (if not first request)
  */

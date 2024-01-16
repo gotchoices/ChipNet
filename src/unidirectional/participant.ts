@@ -1,13 +1,13 @@
-import { decryptObject, encryptObject } from "../symmetric";
 import { SendUniResponse } from "./callbacks";
 import { sequenceStep } from "../sequencing";
 import { PrivateLink } from "../private-link";
-import { nonceFromLink } from "../session-id";
 import { Terms } from "../types";
 import { UniParticipantState } from "./participant-state";
 import { UniQuery } from "./query";
 import { UniRequest } from "./request";
 import { Plan } from "../plan";
+import { makeNonce } from "chipcode";
+import { Symmetric } from "chipcryptbase";
 
 interface UnhiddenCandidate {
     /** Link identifier */
@@ -23,8 +23,8 @@ interface UnhiddenQueryData {
     d: number,
     /** Candidates */
     c: UnhiddenCandidate[],
-    /** SessionID - should match query.SessionId */
-    sid: string,
+    /** SessionCode - should match query.SessionCode */
+    sc: string,
     /** Current time */
     ct: number,
     /** Last duration (undefined = 0) */
@@ -33,7 +33,8 @@ interface UnhiddenQueryData {
 
 export class UniParticipant {
     constructor(
-        private state: UniParticipantState
+        private state: UniParticipantState,
+				private symmetric: Symmetric,
     ) {}
 
     async query(plan: Plan, query: UniQuery, hiddenReentrance?: Uint8Array) {
@@ -52,10 +53,10 @@ export class UniParticipant {
         const candidates = await this.filterCandidates(matches.candidates, plan, query);
         return {
             plans: [],
-            hiddenReentrance: encryptObject({
+            hiddenReentrance: this.symmetric.encryptObject({
 									d: 1,
 									c: candidates.map(c => ({ l: c.id, t: c.terms } as UnhiddenCandidate)),
-									sid: query.sessionId,
+									sc: query.sessionCode,
 									ct: Date.now()
 							} as UnhiddenQueryData,
 							this.state.options.key)
@@ -66,7 +67,7 @@ export class UniParticipant {
     private async filterCandidates(candidates: PrivateLink[], plan: Plan, query: UniQuery) {
         const cycles: Record<string, boolean> = {};
         candidates.forEach(c => {
-            const nonce = nonceFromLink(c.id, query.sessionId);
+            const nonce = makeNonce(c.id, query.sessionCode);
             if (plan.path.some(p => p.nonce === nonce)) {
                 cycles[nonce] = true;
             }
@@ -77,11 +78,11 @@ export class UniParticipant {
             await this.state.reportCycles(Object.keys(cycles));
         }
 
-        return candidates.filter(c => !cycles[nonceFromLink(c.id, query.sessionId)]);
+        return candidates.filter(c => !cycles[makeNonce(c.id, query.sessionCode)]);
     }
 
     async queryNextPhase(plan: Plan, query: UniQuery, hiddenReentrance: Uint8Array): Promise<SendUniResponse> {
-        const reentrance = decryptObject(hiddenReentrance, this.state.options.key) as UnhiddenQueryData;
+        const reentrance = this.symmetric.decryptObject(hiddenReentrance, this.state.options.key) as UnhiddenQueryData;
         if (!this.validateNext(plan, query, reentrance)) {
             return { plans: [] } as SendUniResponse;
         }
@@ -107,10 +108,10 @@ export class UniParticipant {
             plans,
             unhiddenReentrance: plans.length
                 ? undefined
-                : encryptObject({
+                : this.symmetric.encryptObject({
                         d: reentrance.d + 1,
                         c: stepResponse.results.map(r => ({ l: r.link, t: reentrance.c.find(c => c.l === r.link).t, h: r.hiddenReentrance } as UnhiddenCandidate)),
-                        sid: query.sessionId,
+                        sc: query.sessionCode,
                         ct: Date.now(),
                         ld: stepResponse.actualTime
                     } as UnhiddenQueryData,
@@ -121,7 +122,7 @@ export class UniParticipant {
     candidateRequests(plan: Plan, query: UniQuery, candidates: UnhiddenCandidate[]) {
         return candidates.map(c =>
             new UniRequest(c.l,
-                this.state.options.sendUni(c.l, { ...plan, path: [...plan.path, { nonce: nonceFromLink(c.l, query.sessionId), terms: c.t }] }, query, c.h))
+                this.state.options.sendUni(c.l, { ...plan, path: [...plan.path, { nonce: makeNonce(c.l, query.sessionCode), terms: c.t }] }, query, c.h))
             ).reduce((c, r) => { c[r.link] = r; return c; }, {} as Record<string, UniRequest>)
     }
 
@@ -131,7 +132,7 @@ export class UniParticipant {
             return false;
         }
         // Ensure that the tid matches
-        if (reentrance.sid !== query.sessionId) {
+        if (reentrance.sc !== query.sessionCode) {
             return false;
         }
         // Ensure that the time is not too old
