@@ -11,6 +11,7 @@ import { UniParticipantOptions } from '../src/unidirectional/participant-options
 import { Plan } from '../src/plan';
 import { UniParticipantState } from '../src/unidirectional/participant-state';
 import { PrivateLink } from '../src/private-link';
+import { AsymmetricImpl, SymmetricImpl } from 'chipcrypt';
 
 let network;
 let participantStates: Record<string, UniParticipantState>;
@@ -50,13 +51,15 @@ beforeEach(() => {
 		};
 	}
 
+	const asymmetric = new AsymmetricImpl();
 	const originatorOptions = new UniOriginatorOptions(getSendUni(originatorNode), true);
 	originatorOptions.stepOptions.maxTime = 100000;	// LONG TIMEOUT FOR DEBUGGING
 	const originatorState = new MemoryUniOriginatorState(
 		originatorOptions,
 		network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
 		{ address: { key: 'N3' } },
-		{ balance: 100 }
+		{ balance: 100 },
+		asymmetric
 	);
 
 	originator = new UniOriginator(originatorState);
@@ -72,15 +75,17 @@ beforeEach(() => {
 					linkTerms['balance'] >= queryTerms['balance']
 						? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
 						: undefined,
+				asymmetric,
 				network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, linkId: l.name })),
 				{ key: node.name }
 			);
 			return c;
 		}, {} as Record<string, UniParticipantState>);
+	const symmetric = new SymmetricImpl();
 
 	participants = network.nodes
 		.reduce((c, node) => {
-			c[node.name] = new UniParticipant(participantStates[node.name]);
+			c[node.name] = new UniParticipant(participantStates[node.name], symmetric);
 			return c;
 		}, {} as Record<string, UniParticipant>);
 });
