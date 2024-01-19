@@ -1,3 +1,3 @@
 export type Nonce = string;
 
-export type Terms = any;
+export type Terms = Record<string, any>;

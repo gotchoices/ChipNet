@@ -1,5 +1,4 @@
 import { describe, expect, test, it, beforeEach } from '@jest/globals';
-import crypto from 'crypto';
 import { UniOriginator } from '../src/unidirectional/originator';
 import { UniParticipant } from '../src/unidirectional/participant';
 import { type UniQuery } from '../src/unidirectional/query';
@@ -12,15 +11,14 @@ import { Plan } from '../src/plan';
 import { UniParticipantState } from '../src/unidirectional/participant-state';
 import { PrivateLink } from '../src/private-link';
 import { AsymmetricImpl, SymmetricImpl } from 'chipcrypt';
+import { DeterministicRandom } from './deterministic-random';
 
-let network;
+let network: TestNetwork;
 let participantStates: Record<string, UniParticipantState>;
 let participants: Record<string, UniParticipant>;
 let originator: UniOriginator;
 
 beforeEach(() => {
-	// TODO: find a way to mock crypto.randomBytes so that results are deterministic
-
 	/**
 	 * @image ../doc/figures/test-network-1.png
 	 */
@@ -32,9 +30,9 @@ beforeEach(() => {
 			new TestNode('N4'),
 		],
 		[
-			new TestLink('L1', 'N1', 'N2').withTerms({ balance: 500 }),
-			new TestLink('L2', 'N2', 'N3').withTerms({ balance: 500 }),
-			new TestLink('L3', 'N2', 'N4').withTerms({ balance: 500 }),
+			new TestLink('L1', 'N1', 'N2', { balance: 500 }),
+			new TestLink('L2', 'N2', 'N3', { balance: 500 }),
+			new TestLink('L3', 'N2', 'N4', { balance: 500 }),
 		]
 	);
 
@@ -43,7 +41,7 @@ beforeEach(() => {
 	function getSendUni(node: TestNode) {
 		return async (link: string, plan: Plan, query: UniQuery, hiddenReentrance?: Uint8Array) => {
 			const linkNode = network.nodeLinks(node).find(l => l.name === link);
-			const participant = participants[linkNode.node2];
+			const participant = participants[linkNode!.node2];
 			await new Promise(resolve => setTimeout(resolve, 10));
 			const result = await participant.query(plan, query, hiddenReentrance);
 			await new Promise(resolve => setTimeout(resolve, 10));
@@ -64,9 +62,11 @@ beforeEach(() => {
 
 	originator = new UniOriginator(originatorState);
 
+	const random = new DeterministicRandom(1234);
+
 	participantStates = network.nodes
 		.reduce((c, node) => {
-			const participantOptions = new UniParticipantOptions(crypto.randomBytes(32), getSendUni(node), true, []);
+			const participantOptions = new UniParticipantOptions(random.getKey(), getSendUni(node), true, []);
 			participantOptions.stepOptions.maxTime = 100000;	// LONG TIMEOUT FOR DEBUGGING
 			c[node.name] = new MemoryUniParticipantState(
 				participantOptions,
@@ -76,7 +76,7 @@ beforeEach(() => {
 						? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
 						: undefined,
 				asymmetric,
-				network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, linkId: l.name })),
+				network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
 				{ key: node.name }
 			);
 			return c;
@@ -96,7 +96,7 @@ describe('Simple discovery', () => {
 		// TODO: set random seed so that this test is deterministic
 		const result = await originator.discover();
 
-		console.log(result);
+		console.log(JSON.stringify(result, null, 2)); // Pretty print the result
 		// Assert the result
 		expect(result.length).toBe(1);
 		expect(result[0].path.length).toBe(2);

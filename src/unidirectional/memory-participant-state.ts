@@ -9,6 +9,7 @@ import { ExternalReferee, Participant, Plan, PublicLink } from "../plan";
 import { Address, addressesMatch } from "../target";
 import { makeNonce } from "chipcode";
 import { Asymmetric, KeyPairBin, arrayToBase64 } from "chipcryptbase";
+import { Terms } from "../types";
 
 export interface PeerAddress {
 	address: Address;
@@ -18,7 +19,7 @@ export interface PeerAddress {
 }
 
 export class MemoryUniParticipantState implements UniParticipantState {
-	private _cycles: string[] = [];
+	private _cycles: { query: UniQuery, path: string[], collisions: string[] }[] = [];
 	private _responses: Record<string, UniResponse> = {};
 	private _failures: Record<string, string> = {};  // TODO: structured error information
 	private _phaseTime: number = 0;
@@ -50,8 +51,8 @@ export class MemoryUniParticipantState implements UniParticipantState {
 		return this._keyPair;
 	}
 
-	async reportCycles(collisions: string[]) {
-		this._cycles.push(...collisions);
+	async reportCycles(query: UniQuery, path: string[], collisions: string[]) {
+		this._cycles.push({ query, path, collisions });
 	}
 
 	async search(plan: Plan, query: UniQuery) {
@@ -70,20 +71,20 @@ export class MemoryUniParticipantState implements UniParticipantState {
 
 	private async getMatch(plan: Plan, query: UniQuery) {
 		// Look at ourself first
-		if (addressesMatch(this.selfAddress, query.target.address)) {
+		if (this.selfAddress && addressesMatch(this.selfAddress, query.target.address)) {
 			const participant = await this.getParticipant();
 			return { path: [], participants: [participant], externalReferees: this.options.externalReferees } as Plan;
 		}
 
 		const peersForKey = this.peerAddresses ? this._peerIdentitiesByKey[query.target.address.key] : undefined;
-		const peer = peersForKey && peersForKey.find(p => addressesMatch(p.address, query.target.address));
-		const match = this._peerLinksById[peer?.linkId];
-		const terms = match ? this.matchTerms(match.terms, query.terms) : undefined;
+		const peer = peersForKey ? peersForKey.find(p => addressesMatch(p.address, query.target.address)) : undefined;
+		const match = peer?.linkId ? this._peerLinksById[peer?.linkId] : undefined;
+		const terms = match ? await this.negotiateTerms(match.terms, query.terms) : undefined;
 		return match && terms
 			? await this.negotiatePlan({
 					path: [...plan.path, { nonce: makeNonce(match.id, query.sessionCode), terms } as PublicLink],
-					participants: [{ key: peer.address.key, isReferee: peer.selfReferee }],
-					externalReferees: peer.externalReferees
+					participants: [{ key: peer!.address.key, isReferee: peer!.selfReferee }],
+					externalReferees: peer!.externalReferees
 			})
 			: undefined;
 	}
@@ -94,8 +95,12 @@ export class MemoryUniParticipantState implements UniParticipantState {
 			: plan;
 	}
 
+	async negotiateTerms(linkTerms: Terms, queryTerms: Terms): Promise<Terms | undefined> {
+		return this.matchTerms(linkTerms, queryTerms);
+	}
+
 	private async getCandidates(query: UniQuery): Promise<PrivateLink[]> {
-		return this.peerLinks.map(link => ({ id: link.id, terms: this.matchTerms(link.terms, query.terms) } as PrivateLink))
+		return this.peerLinks.map(link => ({ id: link.id, terms: this.negotiateTerms(link.terms, query.terms) } as PrivateLink))
 			.filter(l => l.terms);
 	}
 

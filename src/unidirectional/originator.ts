@@ -63,6 +63,7 @@ export class UniOriginator {
 			this.state.options.sendUni(
 				seg.id,
 				{
+					// TODO: when we figure out reuse with participant for searching locally, use negotiateTerms here:
 					path: [{ nonce, terms: seg.terms }],
 					participants: [participant],
 					externalReferees: this.state.options.externalReferees

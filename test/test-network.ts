@@ -40,8 +40,7 @@ export class TestNetwork {
 			const node2Index = Math.floor(Math.random() * nodeCount);
 			const node1 = nodes[node1Index];
 			const node2 = nodes[node2Index];
-			const link = new TestLink(`L${i}`, node1.name, node2.name);
-			link.terms = { balance: Math.random() * 1000 - 500 };
+			const link = new TestLink(`L${i}`, node1.name, node2.name, { balance: Math.random() * 1000 - 500 });
 			links.push(link);
 		}
 
@@ -72,31 +71,26 @@ export class TestLink {
 	node2: string;
 	terms: Terms;
 
-	constructor(name: string, node1: string, node2: string) {
+	constructor(name: string, node1: string, node2: string, terms: Terms) {
 		this.name = name;
 		this.node1 = node1;
 		this.node2 = node2;
+		this.terms = terms;
 	}
 
 	invertedTerms() {
 		return Object.entries(this.terms).reduce((acc, [key, value]) => {
 			acc[key] = typeof value === 'number' ? -value : value;
 			return acc;
-		});
+		}, {} as Terms);
 	}
 
 	invertedLink() {
-		const link = new TestLink(this.name, this.node2, this.node1);
-		link.terms = this.invertedTerms();
+		const link = new TestLink(this.name, this.node2, this.node1, this.invertedTerms());
 		return link;
 	}
 
 	toString() {
 		return `${this.node1} --${this.name}--> ${this.node2}`;
-	}
-
-	withTerms(terms: Terms) {
-		this.terms = terms;
-		return this;
 	}
 }
