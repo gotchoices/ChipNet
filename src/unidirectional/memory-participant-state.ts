@@ -100,7 +100,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 	}
 
 	private async getCandidates(query: UniQuery): Promise<PrivateLink[]> {
-		return this.peerLinks.map(link => ({ id: link.id, terms: this.negotiateTerms(link.terms, query.terms) } as PrivateLink))
+		return (await Promise.all(this.peerLinks.map(async link => ({ id: link.id, terms: await this.negotiateTerms(link.terms, query.terms) } as PrivateLink))))
 			.filter(l => l.terms);
 	}
 

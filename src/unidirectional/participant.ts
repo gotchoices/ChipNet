@@ -116,7 +116,7 @@ export class UniParticipant {
 
 		return {
 			plans,
-			unhiddenReentrance: plans.length
+			hiddenReentrance: plans.length
 				? undefined
 				: this.symmetric.encryptObject({
 					d: reentrance.d + 1,

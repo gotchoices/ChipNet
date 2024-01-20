@@ -30,7 +30,6 @@ export class MemoryUniOriginatorState implements UniOriginatorState {
 		public target: PrivateTarget,  // Target address and other information
 		public terms: Terms,   // Arbitrary query data to be passed to the target for matching
 		public asymmetric: Asymmetric,	// Asymmetric crypto implementation
-		public targetAddress?: string,	// Optional target physical address
 	) {
 		this._keyPair = asymmetric.generateKeyPairBin();
 		const sessionCode = generateCode(this.options.codeOptions);
@@ -68,8 +67,8 @@ export class MemoryUniOriginatorState implements UniOriginatorState {
 		Object.entries(phaseResponse.failures).forEach(([link, error]) =>
 			this.addFailure(link, error));
 
-		Object.entries(phaseResponse.results).forEach(([link, response]) =>
-			this.addResponse(link, response));
+		phaseResponse.results.forEach(response =>
+			this.addResponse(response));
 
 		this._lastTime = phaseResponse.actualTime;
 	}
@@ -104,9 +103,9 @@ export class MemoryUniOriginatorState implements UniOriginatorState {
 		return this._responses[link];
 	}
 
-	private addResponse(link: string, response: UniResponse) {
-		this._responses[link] = response;
-		delete this._outstanding[link];
+	private addResponse(response: UniResponse) {
+		this._responses[response.link] = response;
+		delete this._outstanding[response.link];
 	}
 
 	/**
