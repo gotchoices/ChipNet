@@ -24,9 +24,9 @@ export class MemoryUniQueryState implements UniQueryState {
 	) { }
 
 	async search() {
-		const route = await this.getMatch();
-		const candidates = route ? undefined : await this.getCandidates();
-		return { plans: route, candidates } as UniSearchResult;
+		const plans = await this.getMatches();
+		const candidates = plans ? undefined : await this.getCandidates();
+		return { plans, candidates } as UniSearchResult;
 	}
 
 	private async getParticipant(): Promise<Participant> {
@@ -37,11 +37,11 @@ export class MemoryUniQueryState implements UniQueryState {
 		};
 	}
 
-	private async getMatch() {
+	private async getMatches(): Promise<Plan[] | undefined> {
 		// Look at ourself first
 		if (this.state.selfAddress && addressesMatch(this.state.selfAddress, this.query.target.address)) {
 			const participant = await this.getParticipant();
-			return { path: [], participants: [participant], externalReferees: this.state.options.externalReferees } as Plan;
+			return [{ path: [], participants: [participant], externalReferees: this.state.options.externalReferees } as Plan];
 		}
 
 		const peersForKey = this.state.getPeerIdentityByKey(this.query.target.address.key);
@@ -49,11 +49,11 @@ export class MemoryUniQueryState implements UniQueryState {
 		const match = peer?.linkId ? this.state.getPeerLinkById(peer?.linkId) : undefined;
 		const terms = match ? await this.negotiateTerms(match.terms, this.query.terms) : undefined;
 		return match && terms
-			? await this.negotiatePlan({
+			? [await this.negotiatePlan({
 				path: [...this.plan.path, { nonce: makeNonce(match.id, this.query.sessionCode), terms } as PublicLink],
 				participants: [{ key: peer!.address.key, isReferee: peer!.selfReferee }],
 				externalReferees: peer!.externalReferees
-			})
+			})]
 			: undefined;
 	}
 

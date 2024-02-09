@@ -32,7 +32,8 @@
 			],
 			"cwd": "${workspaceRoot}",
 			"env": {
-				"NODE_ENV": "test"
+				"NODE_ENV": "test",
+				"NODE_OPTIONS": "--experimental-vm-modules"
 			}
 		},
 		{

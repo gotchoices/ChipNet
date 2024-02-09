@@ -25,6 +25,11 @@ export interface Plan {
 }
 
 /** @returns new plan with the given link added to the path */
-export function appendPlan(plan: Plan, link: PublicLink): Plan {
+export function appendPath(plan: Plan, link: PublicLink): Plan {
 	return { ...plan, path: [...plan.path, link] };
+}
+
+/** @returns new plan with the given participant prepended */
+export function prependParticipant(plan: Plan, participant: Participant): Plan {
+	return { ...plan, participants: [participant, ...plan.participants] };
 }

@@ -45,7 +45,9 @@ export class Scenario {
 		this.participantStates = network.nodes
 			.reduce((c, node) => {
 				const participantOptions = new UniParticipantOptions(this.makeQueryPeerFunc(node), true, []);
-				participantOptions.stepOptions.maxTimeMs = 100000;	// LONG TIMEOUT FOR DEBUGGING
+				participantOptions.stepOptions.maxTimeMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
+				participantOptions.ticketDurationMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
+				participantOptions.maxQueryAgeMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
 				c[node.name] = new MemoryUniParticipantState(
 					participantOptions,
 					network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
@@ -95,7 +97,6 @@ export class Scenario {
 	async getOriginator(originatorName: string, target: Address): Promise<UniOriginator> {
 		const originatorNode = this.network.find(originatorName);
 		const originatorOptions = new UniOriginatorOptions(this.makeQueryPeerFunc(originatorNode), true);
-		originatorOptions.stepOptions.maxTimeMs = 100000;	// LONG TIMEOUT FOR DEBUGGING
 		const originatorState = await MemoryUniOriginatorState.build(
 			originatorOptions,
 			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),

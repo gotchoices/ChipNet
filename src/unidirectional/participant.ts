@@ -4,7 +4,7 @@ import { PrivateLink } from "../private-link";
 import { UniParticipantState } from "./participant-state";
 import { QueryStateContext, UniQueryState } from "./query-state";
 import { UniQuery } from "./query";
-import { Plan, PublicLink, appendPlan } from "../plan";
+import { Plan, PublicLink, appendPath, prependParticipant } from "../plan";
 import { makeNonce } from "chipcode";
 import { QueryContext } from "./query-context";
 import { QueryCandidate } from "./query-context";
@@ -29,29 +29,27 @@ export class UniParticipant {
 	private async firstQuery(plan: Plan, query: UniQuery, linkId?: string): Promise<QueryResponse> {
 		this.validateQuery(plan, query, linkId);
 
-		const augmentedPlan = { ...plan, participants: [...plan.participants, await this.state.getParticipant()] } as Plan;
-
-		const queryState = await this.state.createQueryState(augmentedPlan, query, linkId);	// Note: throws if there's already a query in progress
+		const queryState = await this.state.createQueryState(plan, query, linkId);	// Note: throws if there's already a query in progress
 
 		const matches = await queryState.search();
 
-		const newState = matches.plans
+		const newState = matches.plans?.length
 			? { plans: matches.plans } as QueryStateContext
 			: { queryContext: {
 				query: query,
-				plan: augmentedPlan,
+				plan: plan,
 				depth: 1,
-				candidates: await this.initialCandidates(matches.candidates!, augmentedPlan, query, queryState),
+				candidates: await this.initialCandidates(matches.candidates!, plan, query, queryState),
 				time: Date.now(),
 				duration: 0,	// Don't worry about duration for a depth 1 query (for measuring round-trip time from other nodes)
 			} as QueryContext } as QueryStateContext;
 		await queryState.saveContext(newState);
 
-		return matches.plans
-			? { plans: matches.plans }
+		return matches.plans?.length
+			? { plans: await this.prependParticipant(matches.plans) }
 			: { ticket: {
 				sessionCode: query.sessionCode,
-				expires: Date.now() - this.state.options.ticketDurationMs } };
+				expires: Date.now() + this.state.options.ticketDurationMs } };
 	}
 
 	private async initialCandidates(candidates: PrivateLink[], plan: Plan, query: UniQuery, queryState: UniQueryState) {
@@ -98,7 +96,7 @@ export class UniParticipant {
 				this.state.options.queryPeer(c.ticket
 					? { ticket: c.ticket }
 					: { first: {
-						plan: appendPlan(context.plan, { nonce: makeNonce(c.linkId, context.query.sessionCode), terms: c.terms! }),
+						plan: appendPath(context.plan, { nonce: makeNonce(c.linkId, context.query.sessionCode), terms: c.terms! }),
 						query: context.query } },
 					c.linkId
 				)]));
@@ -111,9 +109,10 @@ export class UniParticipant {
 		const plans = await Promise.all(
 			Object.values(stepResponse.results).flatMap(r => r.plans)
 				.map(p => p ? queryState.negotiatePlan(p) : undefined)
-		);
+				.filter(p => p)
+		) as Plan[];
 
-		const newState = plans
+		const newState = plans?.length
 			? { plans } as QueryStateContext
 			: { queryContext: {
 				query: context.query,
@@ -126,19 +125,24 @@ export class UniParticipant {
 			} as QueryContext } as QueryStateContext;
 		await queryState.saveContext(newState);
 
-		return plans
-			? { plans } as QueryResponse
+		return plans?.length
+			? { plans: await this.prependParticipant(plans) } as QueryResponse
 			: {
 				ticket:
 					newState.queryContext?.candidates.length ? {
 						sessionCode: context.query.sessionCode,
-						expires: Date.now() - this.state.options.ticketDurationMs }
+						expires: Date.now() + this.state.options.ticketDurationMs }
 					: undefined
 			};
 	}
 
+	private async prependParticipant(plans: Plan[]) {
+		const participant = await this.state.getParticipant();
+		return plans.map(p => prependParticipant(p, participant));
+	}
+
 	private async validateTicket(ticket: ReentranceTicket) {
-		if (ticket.expires > Date.now()) {
+		if (ticket.expires < Date.now()) {
 			throw new Error("Ticket expired");
 		}
 	}
@@ -163,15 +167,19 @@ export class UniParticipant {
 		// TODO: validate that the incoming link has terms acceptable to us
 	}
 
-	private async validateQueryState(ticket: ReentranceTicket, persisted?: QueryStateContext, linkId?: string) {
+	private async validateQueryState(ticket: ReentranceTicket, stateContext?: QueryStateContext, linkId?: string) {
 		// Verify that we haven't already given a concluding response for the query
-		if (persisted?.plans) {
+		if (stateContext?.plans) {
 			throw new Error("Query already completed");
 		}
 
-		const context = persisted?.queryContext;
+		const context = stateContext?.queryContext;
 		if (!context) {
 			throw new Error(`Persisted context for reentrance (${ticket.sessionCode}) not found.`);
+		}
+		// validate that the depth isn't too deep
+		if (context.depth >= this.state.options.maxDepth) {	// Assume we're going one deeper than prior context
+			throw new Error(`Query depth (${context.depth}) exceeds maximum (${this.state.options.maxDepth})`);
 		}
 		// validate that the query and plan match
 		if (context.query.sessionCode !== ticket.sessionCode) {
@@ -187,7 +195,7 @@ export class UniParticipant {
 		}
 
 		// Ensure that the time is not too old
-		if (context.time < Date.now() - this.state.options.maxQueryAge) {
+		if (context.time < Date.now() - this.state.options.maxQueryAgeMs) {
 			throw Error("Query stale");
 		}
 	}

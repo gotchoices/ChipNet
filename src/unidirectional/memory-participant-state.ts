@@ -71,11 +71,14 @@ export class MemoryUniParticipantState implements UniParticipantState {
 		return this._peerLinksById[id];
 	}
 
-	async getParticipant(): Promise<Participant> {
+	async getParticipant() {
 		return {
 			key: await this.asymmetricVault.getPublicKeyAsString(),
 			isReferee: this.options.selfReferee,
-			// secret - we do not need this
-		}
+			// secret: - we do not need this
+
+			// DEBUG ONLY:
+			//_identity: this.selfAddress?.key,
+		} as Participant;
 	}
 }
