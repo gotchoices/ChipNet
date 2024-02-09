@@ -1,4 +1,4 @@
-import { describe, expect, test, it, beforeEach } from '@jest/globals';
+import { describe, expect, test, beforeEach } from '@jest/globals';
 import { TestNetwork, TestNode, TestLink } from './test-network';
 import { Scenario, instantTiming } from './scenario';
 
@@ -26,25 +26,25 @@ beforeEach(() => {
 
 describe('Simple discovery', () => {
 
-	// test('should pass the test query through the originator', async () => {
-	// 	const scenario = new Scenario(simpNet, instantTiming);
-	// 	const originator = scenario.getOriginator('N1', { key: 'N3' });
+	test('should pass the test query through the originator', async () => {
+		const scenario = await Scenario.generate(simpNet, instantTiming);
+		const originator = await scenario.getOriginator('N1', { key: 'N3' });
 
-	// 	const result = await originator.discover();
+		const result = await originator.discover();
 
-	// 	console.log(JSON.stringify(result, null, 2)); // Pretty print the result
-	// 	// Assert the result
-	// 	expect(result.length).toBe(1);
-	// 	expect(result[0].path.length).toBe(2);
+		console.log(JSON.stringify(result, null, 2)); // Pretty print the result
+		// Assert the result
+		expect(result.length).toBe(1);
+		expect(result[0].path.length).toBe(2);
 
-	// 	// TODO: check results
-	// 	//expect(result[0][0].nonce).toBe();
-	// }, 10000);
+		// TODO: check results
+		//expect(result[0][0].nonce).toBe();
+	}, 10000);
 
 	test('stats on large networks', async () => {
 		const bigNet = TestNetwork.generate(1000, 7000);
-		const scenario = new Scenario(bigNet, instantTiming);
-		const originator = scenario.getOriginator(
+		const scenario = await Scenario.generate(bigNet, instantTiming);
+		const originator = await scenario.getOriginator(
 			bigNet.nodes[0].name,
 			{ key: bigNet.nodes[bigNet.nodes.length - 1].name });
 

@@ -1,85 +1,72 @@
-import { SendUniResponse } from "./callbacks";
+import { QueryRequest, QueryResponse } from "../query-func";
 import { sequenceStep } from "../sequencing";
 import { PrivateLink } from "../private-link";
-import { Terms } from "../types";
 import { UniParticipantState } from "./participant-state";
+import { QueryStateContext, UniQueryState } from "./query-state";
 import { UniQuery } from "./query";
-import { UniRequest } from "./request";
-import { Plan, PublicLink } from "../plan";
+import { Plan, PublicLink, appendPlan } from "../plan";
 import { makeNonce } from "chipcode";
-import { Symmetric } from "chipcryptbase";
-
-interface UnhiddenCandidate {
-	/** Link identifier */
-	l: string,
-	/** Terms */
-	t: Terms,
-	/** Hidden data */
-	h?: Uint8Array,
-}
-
-interface UnhiddenQueryData {
-	/** Depth - will be 1 after first query */
-	d: number,
-	/** Candidates */
-	c: UnhiddenCandidate[],
-	/** SessionCode - should match query.SessionCode */
-	sc: string,
-	/** Current time */
-	ct: number,
-	/** Last duration (undefined = 0) */
-	ld?: number,
-}
+import { QueryContext } from "./query-context";
+import { QueryCandidate } from "./query-context";
+import { ReentranceTicket } from "../reentrance";
 
 export class UniParticipant {
 	constructor(
-		private state: UniParticipantState,
-		private symmetric: Symmetric,
+		public readonly state: UniParticipantState,
 	) { }
 
-	async query(plan: Plan, query: UniQuery, hiddenReentrance?: Uint8Array) {
-		if (!hiddenReentrance) {
-			return await this.queryFirstPhase(plan, query);
+	async query(request: QueryRequest, linkId?: string): Promise<QueryResponse> {
+		if (request.first) {
+			return await this.firstQuery(request.first.plan, request.first.query, linkId);
+		} else if (request.ticket) {
+			return await this.reenter(request.ticket, linkId);
 		} else {
-			return await this.queryNextPhase(plan, query, hiddenReentrance);
+			throw new Error("Invalid request");
 		}
 	}
 
-	private async queryFirstPhase(plan: Plan, query: UniQuery) {
-		const matches = await this.state.search(plan, query);
-		if (matches.route) {
-			return { plans: [matches.route] } as SendUniResponse;
-		}
-		const resolvedCandidates = await this.resolveCandidates(matches.candidates!, query);
-		const candidates = await this.filterCandidates(resolvedCandidates, plan, query);
-		return {
-			plans: [],
-			hiddenReentrance: candidates.length
-				? this.symmetric.encryptObject({
-					d: 1,
-					c: candidates.map(c => ({ l: c.private.id, t: c.public.terms } as UnhiddenCandidate)),
-					sc: query.sessionCode,
-					ct: Date.now()
-				} as UnhiddenQueryData, this.state.options.key)
-				: undefined
-		} as SendUniResponse;
+	/** First attempt (depth 1) search through this node */
+	private async firstQuery(plan: Plan, query: UniQuery, linkId?: string): Promise<QueryResponse> {
+		this.validateQuery(plan, query, linkId);
+
+		const augmentedPlan = { ...plan, participants: [...plan.participants, await this.state.getParticipant()] } as Plan;
+
+		const queryState = await this.state.createQueryState(augmentedPlan, query, linkId);	// Note: throws if there's already a query in progress
+
+		const matches = await queryState.search();
+
+		const newState = matches.plans
+			? { plans: matches.plans } as QueryStateContext
+			: { queryContext: {
+				query: query,
+				plan: augmentedPlan,
+				depth: 1,
+				candidates: await this.initialCandidates(matches.candidates!, augmentedPlan, query, queryState),
+				time: Date.now(),
+				duration: 0,	// Don't worry about duration for a depth 1 query (for measuring round-trip time from other nodes)
+			} as QueryContext } as QueryStateContext;
+		await queryState.saveContext(newState);
+
+		return matches.plans
+			? { plans: matches.plans }
+			: { ticket: {
+				sessionCode: query.sessionCode,
+				expires: Date.now() - this.state.options.ticketDurationMs } };
 	}
 
-	private async resolveCandidates(candidates: PrivateLink[], query: UniQuery) {
-		return Promise.all(candidates.map(async c => {
-			const terms = await this.state.negotiateTerms(c.terms, query.terms);
+	private async initialCandidates(candidates: PrivateLink[], plan: Plan, query: UniQuery, queryState: UniQueryState) {
+		// Determine any eligable terms and include nonces for all candidates
+		const resolvedCandidates = (await Promise.all(candidates.map(async c => {
+			const terms = await queryState.negotiateTerms(c.terms, query.terms);
 			const publicLink: PublicLink | undefined = terms ? { nonce: makeNonce(c.id, query.sessionCode), terms } : undefined;
 			return { private: c, public: publicLink };
-		}));
-	}
-
-	private async filterCandidates(candidates: { private: PrivateLink, public: PublicLink | undefined }[], plan: Plan, query: UniQuery) {
-		// Only consider candidates that have acceptable terms
-		const potentials = candidates.filter(c => c.public);
+		})))
+			// Only consider candidates that have acceptable terms
+			.filter(c => c.public) as { private: PrivateLink, public: PublicLink }[];
 
 		// Detect cycles in the candidates
 		const cycles = new Set<string>(
-			potentials.filter(c => c.public && plan.path.some(p => p.nonce === c.public?.nonce))
+			resolvedCandidates.filter(c => plan.path.some(p => p.nonce === c.public.nonce))
 				.map(c => c.private.id)
 		);
 
@@ -88,71 +75,120 @@ export class UniParticipant {
 			await this.state.reportCycles(query, plan.path.map(p => p.nonce), [...cycles]);
 		}
 
-		return potentials.filter(c => !cycles.has(c.public!.nonce)) as { private: PrivateLink, public: PublicLink }[];
+		const filteredCandidates = resolvedCandidates.filter(c => !cycles.has(c.public.nonce));
+		return filteredCandidates.map(c => ({ linkId: c.private.id, terms: c.public.terms } as QueryCandidate));
 	}
 
-	private async queryNextPhase(plan: Plan, query: UniQuery, hiddenReentrance: Uint8Array): Promise<SendUniResponse> {
-		const reentrance = this.symmetric.decryptObject(hiddenReentrance, this.state.options.key) as UnhiddenQueryData;
-		if (!this.validateNext(plan, query, reentrance)) {
-			return { plans: [] } as SendUniResponse;
+	/** Query has already passed through this node.  Search further. */
+	async reenter(ticket: ReentranceTicket, linkId?: string): Promise<QueryResponse> {
+		// Restore and validate the context
+		await this.validateTicket(ticket);
+		const queryState = await this.state.getQueryState(ticket.sessionCode);
+		const stateContext = await queryState.getContext();
+		await this.validateQueryState(ticket, stateContext, linkId);
+		const context = stateContext!.queryContext!;
+
+		// Restore candidates that remained in-progress, from state
+		const remainingRequests = await queryState.startStep();
+
+		// Build requests for all other candidates
+		const candidatesNeedingRequests = context.candidates.filter(c => !Object.prototype.hasOwnProperty.call(remainingRequests, c.linkId));
+		const newRequests = Object.fromEntries(candidatesNeedingRequests
+			.map(c => [c.linkId,
+				this.state.options.queryPeer(c.ticket
+					? { ticket: c.ticket }
+					: { first: {
+						plan: appendPlan(context.plan, { nonce: makeNonce(c.linkId, context.query.sessionCode), terms: c.terms! }),
+						query: context.query } },
+					c.linkId
+				)]));
+
+		// Process the step (query sub-nodes)
+		const baseTime = Math.max((context.depth - 1) * this.state.options.stepOptions.minTimeMs, context.time ?? 0);
+		const stepResponse = await sequenceStep(baseTime, { ...remainingRequests, ...newRequests }, this.state.options.stepOptions);
+		await queryState.completeStep(stepResponse);
+
+		const plans = await Promise.all(
+			Object.values(stepResponse.results).flatMap(r => r.plans)
+				.map(p => p ? queryState.negotiatePlan(p) : undefined)
+		);
+
+		const newState = plans
+			? { plans } as QueryStateContext
+			: { queryContext: {
+				query: context.query,
+				plan: context.plan,
+				depth: context.depth + 1,
+				candidates: Object.entries(stepResponse.results).filter(r => r[1].ticket)
+					.map(([linkId, r]) => ({ linkId, ticket: r.ticket } as QueryCandidate)),
+				time: Date.now(),
+				duration: Date.now() - context.time
+			} as QueryContext } as QueryStateContext;
+		await queryState.saveContext(newState);
+
+		return plans
+			? { plans } as QueryResponse
+			: {
+				ticket:
+					newState.queryContext?.candidates.length ? {
+						sessionCode: context.query.sessionCode,
+						expires: Date.now() - this.state.options.ticketDurationMs }
+					: undefined
+			};
+	}
+
+	private async validateTicket(ticket: ReentranceTicket) {
+		if (ticket.expires > Date.now()) {
+			throw new Error("Ticket expired");
 		}
+	}
 
-		// TODO: restore candidates from state that didn't complete in time
-
-		const requests = await this.requestsToCandidates(plan, query, reentrance.c);
-
-		const baseTime = Math.max((reentrance.d - 1) * this.state.options.stepOptions.minTime, reentrance.ld ?? 0);
-		const stepResponse = await sequenceStep(baseTime, requests, this.state.options.stepOptions);
-
-		await this.state.completeStep(stepResponse);
-
-		let plans = stepResponse.results.flatMap(r => r.plans);
-
-		if (plans.length) {
-			plans = await Promise.all(plans.map(p => this.state.negotiatePlan(p)));
+	private validateQuery(plan: Plan, query: UniQuery, linkId?: string) {
+		if (!linkId) {
+			// Validate that if the linkId isn't provided, the plan is also empty (this is the originator)
+			if (plan.path.length) {
+				throw new Error("Link ID required for non-empty plan");
+			}
 		} else {
-			// TODO: persist to state candidates that haven't completed in time
+			// Validate that since a link is provided, there should be at least one entry in the path
+			if (!plan.path.length) {
+				throw new Error("Plan required for non-empty link ID");
+			}
+			// Validate that plan's ending nonce matches the linkId provided
+			const linkNonce = makeNonce(linkId, query.sessionCode);
+			if (plan.path.length && plan.path[plan.path.length - 1].nonce !== linkNonce) {
+				throw new Error("Link ID doesn't match plan");
+			}
 		}
-
-		return {
-			plans,
-			hiddenReentrance: plans.length
-				? undefined
-				: this.symmetric.encryptObject({
-					d: reentrance.d + 1,
-					c: stepResponse.results.map(r => ({ l: r.link, t: reentrance.c.find(c => c.l === r.link)!.t, h: r.hiddenReentrance } as UnhiddenCandidate)),
-					sc: query.sessionCode,
-					ct: Date.now(),
-					ld: stepResponse.actualTime
-				} as UnhiddenQueryData,
-					this.state.options.key),
-		} as SendUniResponse;
+		// TODO: validate that the incoming link has terms acceptable to us
 	}
 
-	async requestsToCandidates(plan: Plan, query: UniQuery, candidates: UnhiddenCandidate[]) {
-		return candidates.map(c => {
-				const nextLink = { nonce: makeNonce(c.l, query.sessionCode), terms: c.t } as PublicLink;
-				return new UniRequest(c.l,
-					this.state.options.sendUni(c.l, { ...plan, path: [...plan.path, nextLink] }, query, c.h))
-			})
-			.reduce((c, r) => { c[r.link] = r; return c; }, {} as Record<string, UniRequest>);
-	}
+	private async validateQueryState(ticket: ReentranceTicket, persisted?: QueryStateContext, linkId?: string) {
+		// Verify that we haven't already given a concluding response for the query
+		if (persisted?.plans) {
+			throw new Error("Query already completed");
+		}
 
-	private validateNext(plan: Plan, query: UniQuery, reentrance: UnhiddenQueryData) {
-		// Ensure that the depth mathes the length of the path
-		if (reentrance.d !== plan.path.length) {
-			return false;
+		const context = persisted?.queryContext;
+		if (!context) {
+			throw new Error(`Persisted context for reentrance (${ticket.sessionCode}) not found.`);
 		}
-		// Ensure that the tid matches
-		if (reentrance.sc !== query.sessionCode) {
-			return false;
+		// validate that the query and plan match
+		if (context.query.sessionCode !== ticket.sessionCode) {
+			throw new Error(`Session code mismatch for ticket and persisted context.`);
 		}
+		// validate that if the linkId is absent, the plan's path is also empty; if linkId is present, it's nonce should match the tail entry in the plan's path
+		if (linkId) {
+			if (!context.plan.path.length || context.plan.path[context.plan.path.length - 1].nonce !== makeNonce(linkId, ticket.sessionCode)) {
+				throw new Error("Incoming link Id doesn't match plan's path");	// Probably shouldn't disclose any Ids in the error message in case the error is relayed
+			}
+		} else if (context.plan.path.length) {
+			throw new Error("Incoming link Id required for non-empty plan");
+		}
+
 		// Ensure that the time is not too old
-		if (reentrance.ct < Date.now() - this.state.options.maxAgeGap) {
-			return false;
+		if (context.time < Date.now() - this.state.options.maxQueryAge) {
+			throw Error("Query stale");
 		}
-		// TODO: ensure that this query ID hasn't been seen at a different depth or with different criteria recently
-		return true;
 	}
 }
-
