@@ -26,24 +26,24 @@ beforeEach(() => {
 
 describe('Simple discovery', () => {
 
-	// test('should pass the test query through the originator', async () => {
-	// 	const scenario = await Scenario.generate(simpNet, instantTiming);
-	// 	const originator = await scenario.getOriginator('N1', { key: 'N3' });
+	test('should pass the test query through the originator', async () => {
+		const scenario = new Scenario(simpNet, instantTiming);
+		const originator = await scenario.getOriginator('N1', { key: 'N3' });
 
-	// 	const result = await originator.discover();
+		const result = await originator.discover();
 
-	// 	console.log(JSON.stringify(result, null, 2)); // Pretty print the result
-	// 	// Assert the result
-	// 	expect(result.length).toBe(1);
-	// 	expect(result[0].path.length).toBe(2);
+		console.log(JSON.stringify(result, null, 2)); // Pretty print the result
+		// Assert the result
+		expect(result.length).toBe(1);
+		expect(result[0].path.length).toBe(2);
 
-	// 	// TODO: check results
-	// 	//expect(result[0][0].nonce).toBe();
-	// }, 10000);
+		// TODO: check results
+		//expect(result[0][0].nonce).toBe();
+	}, 10000);
 
 	test('stats on large networks', async () => {
 		const bigNet = TestNetwork.generate(1000, 7000);
-		const scenario = await Scenario.generate(bigNet, instantTiming);
+		const scenario = new Scenario(bigNet, instantTiming);
 		const originator = await scenario.getOriginator(
 			bigNet.nodes[0].name,
 			{ key: bigNet.nodes[bigNet.nodes.length - 1].name });

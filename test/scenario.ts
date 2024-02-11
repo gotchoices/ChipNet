@@ -7,10 +7,10 @@ import { UniOriginatorOptions } from '../src/unidirectional/originator-options';
 import { UniParticipantOptions } from '../src/unidirectional/participant-options';
 import { UniParticipantState } from '../src/unidirectional/participant-state';
 import { PrivateLink } from '../src/private-link';
-import { AsymmetricImpl, AsymmetricVaultImpl } from 'chipcrypt';
-import { AsymmetricVault } from 'chipcryptbase';
 import { Address } from '../src/target';
 import { QueryRequest } from '../src';
+import { DummyAsymmetricalVault } from './dummy-asymmetrical-vault';
+import { DummyCryptoHash } from './dummy-cryptohash';
 
 export interface Timing {
 	requestMs: number;
@@ -22,40 +22,27 @@ export const instantTiming = { requestMs: 0, responseMs: 0 };
 export class Scenario {
 	public participantStates: Record<string, UniParticipantState>;
 	public participants: Record<string, UniParticipant>;
+	public cryptoHash = new DummyCryptoHash('test');
 
 	public stats = {
 		totalNetworkRequests: 0,
 		networkRequeuestByDepth: [] as number[],
 	};
 
-	static async generate(network: TestNetwork, timing: Timing) {
-		const asymmetric = await AsymmetricVaultImpl.generate(new AsymmetricImpl());
-		return new Scenario(network, timing, asymmetric);
-	}
-
 	constructor(
 		public network: TestNetwork,
 		public timing: Timing,
-		public asymmetric: AsymmetricVault,
 	) {
 		//const random = new DeterministicRandom(1234);
 
 		// TODO: set random seed for cryptchipbase so that tests are deterministic
 
+
 		this.participantStates = network.nodes
 			.reduce((c, node) => {
-				const participantOptions = new UniParticipantOptions(this.makeQueryPeerFunc(node), true, []);
-				participantOptions.stepOptions.maxTimeMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
-				participantOptions.ticketDurationMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
-				participantOptions.maxQueryAgeMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
 				c[node.name] = new MemoryUniParticipantState(
-					participantOptions,
+					this.cryptoHash,
 					network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
-					(linkTerms, queryTerms) =>
-						linkTerms['balance'] >= queryTerms['balance']
-							? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
-							: undefined,
-					this.asymmetric,
 					network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
 					{ key: node.name }
 				);
@@ -64,7 +51,26 @@ export class Scenario {
 
 		this.participants = network.nodes
 			.reduce((c, node) => {
-				c[node.name] = new UniParticipant(this.participantStates[node.name]);
+				const participantOptions = new UniParticipantOptions(
+					this.makeQueryPeerFunc(node),
+					true,
+					(linkTerms, queryTerms) =>
+						linkTerms['balance'] >= queryTerms['balance']
+							? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
+							: undefined,
+				);
+				participantOptions.stepOptions.maxTimeMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
+				participantOptions.ticketDurationMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
+				participantOptions.maxQueryAgeMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
+
+				const asymmetric = new DummyAsymmetricalVault(node.name);
+
+				c[node.name] = new UniParticipant(
+					participantOptions,
+					this.participantStates[node.name],
+					asymmetric,
+					this.cryptoHash
+				);
 				return c;
 			}, {} as Record<string, UniParticipant>);
 
@@ -100,13 +106,14 @@ export class Scenario {
 		const originatorState = await MemoryUniOriginatorState.build(
 			originatorOptions,
 			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
-			this.asymmetric,
+			new DummyAsymmetricalVault(originatorName),
+			this.cryptoHash,
 			{ address: target /* TODO: unsecret */ },
 			{ balance: 100 }
 		);
 		const participant = this.participants[originatorName]
 
-		return new UniOriginator(originatorState, participant.state);
+		return new UniOriginator(originatorState, participant);
 	}
 }
 

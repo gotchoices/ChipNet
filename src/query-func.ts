@@ -43,3 +43,10 @@ export type QueryPeerFunc = (request: QueryRequest, linkId: string) => Promise<Q
  * @returns The terms that match, or undefined if there is no match
  */
 export type MatchTermsFunc = (linkTerms: Terms, queryTerms: Terms) => Terms | undefined;
+
+/**
+ * A function that negotiates the referees and other aspect of the plan
+ * @param plan The incoming plan to negotiate
+ * @returns The revised plan or undefined if the plan is rejected
+ */
+export type NegotiatePlanFunc = (plan: Plan) => Plan | undefined;

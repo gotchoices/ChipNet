@@ -1,12 +1,9 @@
-import { Participant, Plan } from "../plan";
-import { UniParticipantOptions } from "./participant-options";
+import { Plan } from "../plan";
 import { UniQuery } from "./query";
 import { UniQueryState } from "./query-state";
 
 /** Represents the state of a participant in unidirectional discovery. */
 export interface UniParticipantState {
-	readonly options: UniParticipantOptions;
-
 	/**
 	 * Starts new query state for the specified plan and query.
 	 * @param plan - The plan as it has been constructed so far.
@@ -23,10 +20,8 @@ export interface UniParticipantState {
 	 * @returns A promise that resolves to the query state.
 	 * @throws If there is no query in process for the query session.
 	*/
-	getQueryState(sessionCode: string): Promise<UniQueryState>;
+	getQueryState(sessionCode: string, linkId?: string): Promise<UniQueryState>;
 
 	reportCycles(query: UniQuery, path: string[], collisions: string[]): Promise<void>;
-
-	getParticipant(): Promise<Participant>;
 }
 
