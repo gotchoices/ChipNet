@@ -35,7 +35,8 @@ export class UniParticipant {
 
 		const queryState = await this.state.createQueryState(plan, query, linkId);	// Note: throws if there's already a query in progress
 
-		const plans = this.processAndFilterPlans((await queryState.search()) || [], query);
+		const rawPlans = (await queryState.search()) || [];
+		const plans = this.processAndFilterPlans(rawPlans, query);
 
 		const newStateContext = plans?.length
 			? { plans: plans } as QueryStateContext
@@ -63,9 +64,14 @@ export class UniParticipant {
 
 	/** negotiate terms and plans for any matches, then filter any with rejected terms or plans */
 	private processAndFilterPlans(matches: Plan[], query: UniQuery) {
-		return (matches.map(p => ({ ...p, path: [{ ...p.path[0], terms: this.options.negotiateTerms(p.path[0].terms, query.terms) }, ...p.path.slice(1)] }))
-			.filter(p => p.path[0].terms) as Plan[])
+		return (matches
+			// Renegotiate terms for each step of path for each plan
+			.map(plan => ({ ...plan, path: plan.path.map(p => ({ ...p, terms: this.options.negotiateTerms(p.terms, query.terms) })) }))
+			// Filter out plans that have any links with rejected terms
+			.filter(plan => plan.path.every(p => p.terms)) as Plan[])
+			// Negotiate the plan (ie. vet and/or add external referees if needed)
 			.map(p => this.getNegotiatePlan()(p))
+			// Filter out any plans that were rejected by the negotiation
 			.filter(p => p) as Plan[];
 	}
 
@@ -94,7 +100,7 @@ export class UniParticipant {
 		return filteredCandidates.map(c => ({ linkId: c.private.id, terms: c.public.terms } as QueryCandidate));
 	}
 
-	/** Query has already passed through this node.  Search further. */
+	/** Query has already passed through this node.  Search one level further. */
 	async reenter(ticket: ReentranceTicket, linkId?: string): Promise<QueryResponse> {
 		// Restore and validate the context
 		await this.validateTicket(ticket);
@@ -231,6 +237,7 @@ export class UniParticipant {
 
 	private getDefaultNegotiatePlan(): NegotiatePlanFunc {
 		return (plan: Plan) => {
+			// TODO: Equalize the balance of the terms (will have to be a callback)
 			return this.options.externalReferees?.length
 				? { ...plan, externalReferees: concatExternalReferees(plan.externalReferees ?? [], this.options.externalReferees) }
 				: plan;
