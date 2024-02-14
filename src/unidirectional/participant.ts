@@ -127,7 +127,7 @@ export class UniParticipant {
 		);
 
 		// Process the step (query sub-nodes)
-		const baseTime = Math.max((context.depth - 1) * this.options.stepOptions.minTimeMs, context.time ?? 0);
+		const baseTime = Math.max((context.depth - 1) * this.options.stepOptions.minTimeMs, context.time === undefined ? 0 : Date.now() - context.time);
 		const stepResponse = await sequenceStep(baseTime, { ...outstandingRequests, ...newRequests }, this.options.stepOptions);
 		await queryState.completeStep(stepResponse);
 

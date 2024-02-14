@@ -7,7 +7,7 @@ export class UniParticipantOptions {
 	stepOptions = new StepOptions();
 	allowUnpersisted = true;
 	ticketDurationMs = 30000;
-	maxDepth = 6;	// Should generally be one less than the originator's maxDepth
+	maxDepth = 7;	// Should generally be the same the originator's maxDepth
 	negotiatePlan?: (p: Plan) => Plan;
 
 	constructor(
