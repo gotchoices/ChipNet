@@ -22,7 +22,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.5.12",
-    "@types/node": "^20.11.17",
+    "@types/node": "^20.11.19",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "chipcrypt": "^0.1.5",
@@ -33,7 +33,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "chipcode": "^0.1.3",
-    "chipcryptbase": "^0.1.11"
+    "chipcode": "^0.1.5",
+    "chipcryptbase": "^0.1.14"
   }
 }

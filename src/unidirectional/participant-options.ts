@@ -6,7 +6,6 @@ export class UniParticipantOptions {
 	maxQueryAgeMs = 10000; // No longer than this between subsequent queries
 	stepOptions = new StepOptions();
 	allowUnpersisted = true;
-	ticketDurationMs = 30000;
 	maxDepth = 7;	// Should generally be the same the originator's maxDepth
 	negotiatePlan?: (p: Plan) => Plan;
 

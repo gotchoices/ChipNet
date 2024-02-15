@@ -57,7 +57,6 @@ export class UniParticipant {
 			: {
 				ticket: {
 					sessionCode: query.sessionCode,
-					expires: Date.now() + this.options.ticketDurationMs
 				}
 			};
 	}
@@ -157,7 +156,6 @@ export class UniParticipant {
 				ticket:
 					newState.queryContext?.candidates.length ? {
 						sessionCode: context.query.sessionCode,
-						expires: Date.now() + this.options.ticketDurationMs
 					}
 						: undefined
 			};
@@ -173,12 +171,15 @@ export class UniParticipant {
 	}
 
 	private async validateTicket(ticket: ReentranceTicket) {
-		if (ticket.expires < Date.now()) {
-			throw new Error("Ticket expired");
+		if (this.cryptoHash.isExpired(ticket.sessionCode)) {
+			throw new Error("Query session expired");
 		}
 	}
 
 	private async validateQuery(plan: Plan, query: UniQuery, linkId?: string) {
+		if (!this.cryptoHash.isValid(query.sessionCode)) {
+			throw new Error("Invalid or expired session code");
+		}
 		if (!linkId) {
 			// Validate that if the linkId isn't provided, the plan is also empty (this is the originator)
 			if (plan.path.length) {
@@ -195,7 +196,6 @@ export class UniParticipant {
 				throw new Error("Link ID doesn't match plan");
 			}
 		}
-		// TODO: validate that the incoming (partner) link has terms acceptable to us
 	}
 
 	private async validateQueryState(ticket: ReentranceTicket, stateContext?: QueryStateContext, linkId?: string) {

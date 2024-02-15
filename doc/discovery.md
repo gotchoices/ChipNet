@@ -16,21 +16,33 @@ The target address is opaque to this protocol.  Note that various address scenar
 
 ## Links
 
-A link identifies a directed edge (e.g. tally in MyCHIPs), between nodes.  Note that there may be multiple links that lead to and from the same node.  This is unrelated to a communications link.
+A link identifies a directed edge (e.g. tally in MyCHIPs), between nodes.  Note that there may be multiple links that lead to and from the same node.  This refers to a trade/trust link, not specifically a communications link, though it does imply that a communications link may be established.
 
-## Nonces & Session IDs
+## Session Code
 
-A nonce, for the purpose of this library, is an anonymized (hashed and salted) link identifier.  Each query has a Session ID, which is a cryptographically random salt used to generate the hashed nonce, which acts as a surrogate identifier for participants in the session.  The nonce is produced by getting the base64 encoding of the SHA-256 hash of the link prepended to the Session ID.
+Each query has a Session Code, which is a cryptographically random salt used to generate the hashed nonce, which acts as a surrogate identifier for participants in the session.  See ChipCode for details on CryptoHash.  The Session Code essentially provides the following:
+* A distributed unique identifier for the query
+* A cryptographic salt for hashing private identifiers (allowing tally IDs to remain deterministic, but anonymous) - see Nonces
+* A query lifetime (via expiration), allowing parties to safely release query-related resources afterward
 
-## Reentrance tickets
+## Nonces
 
-Encrypted binary block containing state data necessary to continue search at depth > 1:
-* Depth (will be 1 after first query)
-* Candidate links
-* SessionCode - ensure that it matches
-* Current time - don't run stale queries
+A nonce, for the purpose of this library, is an anonymized (hashed and salted) link identifier.  Using a Nonce and the Session Code, a party can verify the identity of a known identifier, but the Nonce and Session Codes don't otherwise disclose the identity.  The nonce is produced by getting the base64 encoding of the SHA-256 hash of the link prepended to the Session Code.  See the ChipCode library for details.
 
-The encryption is based on an aes-256 key which is given as part of configuration options.
+## Query
+
+A node query (`QueryRequest`) is either first-time, or reentant.  
+
+For first-time queries:
+* They are verified to be unique (history kept in state within expiration window) 
+* Searched locally based on the current nodes secret and public identities, as well as known peer identities.
+* The state of the query (whether found or not) is stored in state, so further queries can be rejected or resumed
+* If no matches are found, candidates are stored as part of state
+
+Reentrant queries include a structure necessary to resume (search another level deep):
+* SessionCode - used to retrieve the query context from state storage
+* Expiration time - don't run stale queries
+Each node persists the state of the query by the SessionCode.
 
 ## Sequences
 
