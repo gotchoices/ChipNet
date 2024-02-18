@@ -1,5 +1,5 @@
 import { QueryPeerFunc } from "../query-func";
-import { ExternalReferee } from "../plan";
+import { Member } from "../plan";
 
 export class UniOriginatorOptions {
     maxDepth: number = 7;	// if this changes, also change UniParticipantOptions.maxDepth
@@ -7,6 +7,6 @@ export class UniOriginatorOptions {
     constructor(
         public queryPeer: QueryPeerFunc,
 				public selfReferee: boolean,
-				public externalReferees?: ExternalReferee[],
+				public externalReferees?: Member[],
     ) {}
 }

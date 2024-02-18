@@ -13,6 +13,7 @@
 				"${workspaceRoot}/node_modules/jest/bin/jest.js",
 				"--runInBand",
 				"--watchAll=false",
+				"--detectOpenHandles",
 				"--no-cache"
 			],
 			"console": "integratedTerminal",

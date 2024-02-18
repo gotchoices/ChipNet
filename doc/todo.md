@@ -1,4 +1,4 @@
-* Allow participants to suggest relay nodes - perhaps unify plan and ChipSync's topology better
+* Return compressed timing histogram of sub-nodes.  Use to optimize up-stream timing of level.
 * Quotas & metrics
 * Balance advertising
 * Consider allowing for publicly identifiable links (don't nonce encode)

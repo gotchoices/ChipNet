@@ -11,14 +11,14 @@ export class UniOriginator {
 	}
 
 	async discover(): Promise<Plan[]> {
-		let request = { first: { plan: { path: [], participants: [] }, query: this.state.query } } as QueryRequest;
+		let request = { first: { plan: { path: [], participants: [], members: {} }, query: this.state.query } } as QueryRequest;
 		for (let i = 0; i <= this.state.options.maxDepth; i++) {
 			const response = await this.participant.query(request);
 			if (!response.plans?.length) {
-				if (!response.ticket) {
+				if (!response.canReenter) {
 					break;
 				}
-				request = { ticket: response.ticket };
+				request = { reentrance: { sessionCode: this.state.query.sessionCode } };
 			} else {
 				return response.plans;
 			}

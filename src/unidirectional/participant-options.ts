@@ -1,6 +1,6 @@
 import { MatchTermsFunc, QueryPeerFunc } from "../query-func";
 import { StepOptions } from "../sequencing";
-import { ExternalReferee, Plan } from "../plan";
+import { Member, Plan } from "../plan";
 
 export class UniParticipantOptions {
 	maxQueryAgeMs = 10000; // No longer than this between subsequent queries
@@ -14,7 +14,7 @@ export class UniParticipantOptions {
 		public selfReferee: boolean,
 		public negotiateTerms: MatchTermsFunc,
 		public selfSecret?: string,
-		public externalReferees?: ExternalReferee[]
+		public otherMembers?: Record<string, Member>
 	) { }
 
 }

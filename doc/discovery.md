@@ -7,6 +7,23 @@ There are two general types of discovery:
 * Unidirectional – Finds a target node, starting from an origin node
 * Bidirectional – Finds a path from one node to another, starting from both nodes.  These nodes may be the same node also.
 
+### Unidirectional search
+
+The unidirectional query algorithm proceeds as follows:
+1. Starting at originator, queries the self participant.
+2. On first search, a participant searches it's self and all known peers for a target match.  
+     * If match found it is returned, and local context is updated;
+     * If no match, a set of potential candidates are collected and stored in local context;
+3. Originator gets results.
+     * If originator receives one or more match, returns them - done.
+     * If no matches, reenter query on local participant
+4. Participant resumes context by the session code and queries on all candidates.
+5. Repeats until maximum depth is reached or match found
+
+Notes:
+* Each node gives it's children a finite time to execute.  If a response isn't received by the end of the step, a response will be given, excluding the result of the outstanding request.  During the next query, any outstanding responses from the prior step are folded in.
+* The links of the path in the plan are built on the way out (avoids cycles), the participants are added on the way back (maximizes privacy).
+
 ## Addresses
 
 The target address is opaque to this protocol.  Note that various address scenarios are possible:
@@ -39,12 +56,9 @@ For first-time queries:
 * The state of the query (whether found or not) is stored in state, so further queries can be rejected or resumed
 * If no matches are found, candidates are stored as part of state
 
-Reentrant queries include a structure necessary to resume (search another level deep):
-* SessionCode - used to retrieve the query context from state storage
-* Expiration time - don't run stale queries
-Each node persists the state of the query by the SessionCode.
+Reentrant queries are given the session code in order to resume (search another level deep).  The expiration of the seesion code is validates.
 
-## Sequences
+## Step Sequences
 
 Timing is carefully orchestrated during the route discovery process. With each depth level (sequence), the originator waits for responses based on a combination of factors:
 * Prior request timing - It is assumed that the amount of time taken by the prior request to complete will likely function as a baseline for the next request

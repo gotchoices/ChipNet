@@ -1,7 +1,7 @@
 import { Plan } from "./plan";
 import { Terms } from "./types";
 import { UniQuery } from "./unidirectional/query";
-import { ReentranceTicket } from "./reentrance";
+import { Reentrance } from "./reentrance";
 
 /**
  * Response from a participant.
@@ -11,13 +11,13 @@ import { ReentranceTicket } from "./reentrance";
 export interface QueryResponse {
 	/** Successful plans (if any) */
 	plans?: Plan[];
-	/** If present, further searches are possible; must include this */
-	ticket?: ReentranceTicket;
+	/** If set, further searches are possible */
+	canReenter?: boolean;
 }
 
 /**
  * Node discovery request
- * will container either first, which contains the query and plan so far, or a reentrance ticket to continue a previous query (not both)
+ * will container either first, which contains the query and plan so far, or a reentrance session code to continue a previous query (not both)
  */
 export interface QueryRequest {
 	first?: {
@@ -26,7 +26,7 @@ export interface QueryRequest {
 		/** The transaction plan so far, including path of edge nonces (SessionCode anonymized links) encountered so far, and other terms */
 		plan: Plan;
 	},
-	ticket?: ReentranceTicket,
+	reentrance?: Reentrance,
 }
 
 /**

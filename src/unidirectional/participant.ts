@@ -2,14 +2,15 @@ import { NegotiatePlanFunc, QueryRequest, QueryResponse } from "../query-func";
 import { sequenceStep } from "../sequencing";
 import { PrivateLink } from "../private-link";
 import { UniParticipantState } from "./participant-state";
-import { QueryStateContext } from "./query-state";
+import { QueryStateContext, UniQueryState } from "./query-state";
 import { UniQuery } from "./query";
-import { ExternalReferee, Participant, Plan, PublicLink, appendPath, prependParticipant } from "../plan";
+import { Member, Plan, PublicLink, appendPath, prependParticipant } from "../plan";
 import { QueryContext } from "./query-context";
 import { QueryCandidate } from "./query-context";
-import { ReentranceTicket } from "../reentrance";
+import { Reentrance } from "../reentrance";
 import { UniParticipantOptions } from "..";
 import { AsymmetricVault, CryptoHash } from "chipcryptbase";
+import { Pending } from "../pending";
 
 export class UniParticipant {
 	constructor(
@@ -22,8 +23,8 @@ export class UniParticipant {
 	async query(request: QueryRequest, linkId?: string): Promise<QueryResponse> {
 		if (request.first) {
 			return await this.firstQuery(request.first.plan, request.first.query, linkId);
-		} else if (request.ticket) {
-			return await this.reenter(request.ticket, linkId);
+		} else if (request.reentrance) {
+			return await this.reenter(request.reentrance, linkId);
 		} else {
 			throw new Error("Invalid request");
 		}
@@ -54,11 +55,7 @@ export class UniParticipant {
 
 		return plans?.length
 			? { plans: await this.prependParticipant(plans) }
-			: {
-				ticket: {
-					sessionCode: query.sessionCode,
-				}
-			};
+			: { canReenter: true };
 	}
 
 	/** negotiate terms and plans for any matches, then filter any with rejected terms or plans */
@@ -100,38 +97,56 @@ export class UniParticipant {
 	}
 
 	/** Query has already passed through this node.  Search one level further. */
-	async reenter(ticket: ReentranceTicket, linkId?: string): Promise<QueryResponse> {
+	async reenter(reentrance: Reentrance, linkId?: string): Promise<QueryResponse> {
 		// Restore and validate the context
-		await this.validateTicket(ticket);
-		const queryState = await this.state.getQueryState(ticket.sessionCode, linkId);
+		await this.validateTicket(reentrance);
+		const queryState = await this.state.getQueryState(reentrance.sessionCode, linkId);
 		const stateContext = await queryState.getContext();
-		await this.validateQueryState(ticket, stateContext, linkId);
+		await this.validateQueryState(reentrance, stateContext, linkId);
 		const context = stateContext!.queryContext!;
 
-		// Restore candidates that remained in-progress, from state
-		const outstandingRequests = await queryState.startStep();
+		// Restore candidates that were still in-progress at termination of last query, record any completions
+		const outstandingRequests = await queryState.recallRequests();
+		const completedOutstanding = Object.entries(outstandingRequests).filter(([, r]) => r.isComplete);
+		if (completedOutstanding.length) {
+			await queryState.storeRequests(Object.fromEntries(completedOutstanding));
+		}
 
-		// Build requests for all other candidates
-		const candidatesToRequest = context.candidates.filter(c => !Object.prototype.hasOwnProperty.call(outstandingRequests, c.linkId));
-		const candidatesToRequestsAndNonces = await Promise.all(
+		// Time has elapsed since last query.  Check for successful responses in outstanding requests before proceeding to another step
+		const successfulResponses = completedOutstanding.filter(([, r]) => r.response && r.response.plans?.length);
+		if (successfulResponses.length) {
+			return await this.endReentrance(outstandingRequests, context, context.duration ?? 0, queryState);
+		}
+		const stillOutstanding = Object.fromEntries(Object.entries(outstandingRequests).filter(([, r]) => !r.isComplete));
+
+		// Outstanding requests that succeeded and can be reentered and candidates from prior context
+		const candidatesToRequest =
+			completedOutstanding.filter(([, r]) => r.response && r.response.canReenter)
+				.map(([linkId]) => ({ linkId, isReentry: true } as QueryCandidate))
+				.concat(context.candidates);
+		const candidatesToRequestAndNonces = await Promise.all(
 			candidatesToRequest.map(async c => [c, await this.cryptoHash.makeNonce(c.linkId, context.query.sessionCode)] as const)
 		);
 		const newRequests = Object.fromEntries(
-			candidatesToRequestsAndNonces.map(([c, nonce]) => [c.linkId,
-				this.options.queryPeer(c.ticket
-						? { ticket: c.ticket }
+			candidatesToRequestAndNonces.map(([c, nonce]) => [c.linkId,
+				new Pending(this.options.queryPeer(c.isReentry
+						? { reentrance }
 						: { first: { plan: appendPath(context.plan, { nonce , terms: c.terms! }), query: context.query }  },
 					c.linkId
-				)])
-		);
+				))]));
 
 		// Process the step (query sub-nodes)
-		const baseTime = Math.max((context.depth - 1) * this.options.stepOptions.minTimeMs, context.time === undefined ? 0 : Date.now() - context.time);
-		const stepResponse = await sequenceStep(baseTime, { ...outstandingRequests, ...newRequests }, this.options.stepOptions);
-		await queryState.completeStep(stepResponse);
+		const requests = { ...stillOutstanding, ...newRequests };
+		const baseDuration = Math.max((context.depth - 1) * this.options.stepOptions.minTimeMs, context.duration ?? 0);
+		const totalDuration = await sequenceStep(baseDuration, requests, this.options.stepOptions);
 
-		const plans =
-			Object.values(stepResponse.results).flatMap(r => r.plans)
+		await queryState.storeRequests(requests);
+
+		return await this.endReentrance(requests, context, totalDuration, queryState);
+	}
+
+	private async endReentrance(requests: Record<string, Pending<QueryResponse>>, context: QueryContext, totalDuration: number, queryState: UniQueryState) {
+		const plans = Object.values(requests).filter(r => r.isResponse).flatMap(r => r.response!.plans)
 				.map(p => p ? this.getNegotiatePlan()(p) : undefined)
 				.filter(p => p) as Plan[];
 
@@ -142,35 +157,32 @@ export class UniParticipant {
 					query: context.query,
 					plan: context.plan,
 					depth: context.depth + 1,
-					candidates: Object.entries(stepResponse.results).filter(r => r[1].ticket)
-						.map(([linkId, r]) => ({ linkId, ticket: r.ticket } as QueryCandidate)),
+					candidates: Object.entries(requests).filter(([, r]) => r.response && r.response.canReenter)
+						.map(([linkId]) => ({ linkId, isReentry: true } as QueryCandidate)),
 					time: Date.now(),
-					duration: Date.now() - context.time
+					duration: totalDuration
 				} as QueryContext
 			} as QueryStateContext;
 		await queryState.saveContext(newState);
 
 		return plans?.length
 			? { plans: await this.prependParticipant(plans) } as QueryResponse
-			: {
-				ticket:
-					newState.queryContext?.candidates.length ? {
-						sessionCode: context.query.sessionCode,
-					}
-						: undefined
-			};
+			: { // Can reenter if there are complete requests flagged for reentry, or remaining outstanding requests
+				canReenter: newState.queryContext?.candidates.length
+					|| Object.values(requests).some(r => !r.isComplete)
+			} as QueryResponse;
 	}
 
 	private async prependParticipant(plans: Plan[]) {
-		const participant: Participant = {
-			key: await this.asymmetricVault.getPublicKeyAsString(),
-			isReferee: this.options.selfReferee,
+		const key = await this.asymmetricVault.getPublicKeyAsString();
+		const participant: Member = {
+			types: this.options.selfReferee ? [1, 2] : [1],
 			secret: this.options.selfSecret,
 		};
-		return plans.map(p => prependParticipant(p, participant));
+		return plans.map(p => prependParticipant(p, key, participant));
 	}
 
-	private async validateTicket(ticket: ReentranceTicket) {
+	private async validateTicket(ticket: Reentrance) {
 		if (this.cryptoHash.isExpired(ticket.sessionCode)) {
 			throw new Error("Query session expired");
 		}
@@ -198,7 +210,7 @@ export class UniParticipant {
 		}
 	}
 
-	private async validateQueryState(ticket: ReentranceTicket, stateContext?: QueryStateContext, linkId?: string) {
+	private async validateQueryState(ticket: Reentrance, stateContext?: QueryStateContext, linkId?: string) {
 		// Verify that we haven't already given a concluding response for the query
 		if (stateContext?.plans) {
 			throw new Error("Query already completed");
@@ -237,16 +249,26 @@ export class UniParticipant {
 
 	private getDefaultNegotiatePlan(): NegotiatePlanFunc {
 		return (plan: Plan) => {
-			// TODO: Equalize the balance of the terms (will have to be a callback)
-			return this.options.externalReferees?.length
-				? { ...plan, externalReferees: concatExternalReferees(plan.externalReferees ?? [], this.options.externalReferees) }
+			// TODO: Equalize to least denominator terms (will have to be a callback)
+			return this.options.otherMembers?.length
+				? { ...plan, members: concatMembers(plan.members, this.options.otherMembers ?? {}) }
 				: plan;
 		};
 	}
 }
 
-/** @returns Deduplicated union of referees, or undefined if both sets are empty */
-function concatExternalReferees(referees1: ExternalReferee[], referees2: ExternalReferee[]) {
-	const result = referees1.concat(referees2.filter(r2 => !referees1.find(r1 => r1.key === r2.key)));
-	return result.length ? result : undefined;
+/** @returns Deduplicated union of members */
+function concatMembers(members1: Record<string, Member>, members2: Record<string, Member>) {
+	const result: Record<string, Member> = { ...members1 };
+	for (const key in members2) {
+		if (Object.prototype.hasOwnProperty.call(members1, key)) {
+			const member1 = members1[key];
+			const member2 = members2[key];
+			const types = Array.from(new Set([...member1.types, ...member2.types]));
+			result[key] = { ...member1, types };
+		} else {
+			result[key] = members2[key];
+		}
+	}
+	return result;
 }

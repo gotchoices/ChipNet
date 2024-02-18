@@ -22,7 +22,7 @@ export const instantTiming = { requestMs: 0, responseMs: 0 };
 export class Scenario {
 	public participantStates: Record<string, UniParticipantState>;
 	public participants: Record<string, UniParticipant>;
-	public cryptoHash = new DummyCryptoHash('test');
+	public cryptoHash = new DummyCryptoHash(60 * 60 * 1000);
 
 	public stats = {
 		totalNetworkRequests: 0,
@@ -59,9 +59,8 @@ export class Scenario {
 							? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
 							: undefined,
 				);
-				participantOptions.stepOptions.maxTimeMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
-				participantOptions.ticketDurationMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
-				participantOptions.maxQueryAgeMs = 500000;	// LONG TIMEOUT FOR DEBUGGING
+				participantOptions.stepOptions.maxTimeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING
+				participantOptions.maxQueryAgeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING
 
 				const asymmetric = new DummyAsymmetricalVault(node.name);
 

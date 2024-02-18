@@ -3,13 +3,7 @@
 	Note that this is independent code, and could be moved into its own package.
 */
 
-/** Result of the step */
-export interface StepResponse<RT> {
-	results: Record<string, RT>;
-	failures: Record<string, string>;
-	outstanding: Record<string, Promise<RT>>;
-	actualTime: number;
-}
+import { Pending } from "./pending";
 
 export class StepOptions {
 	/** The minimum time that must elapse before terminating the step, unless all results are in. */
@@ -22,59 +16,51 @@ export class StepOptions {
 }
 
 /** Perform a coordinated sequence step.
- * @param baseTime - All timing is relative (in addition to) to this base amount of time.
+ * @param baseDuration - All timing is relative (in addition to) to this base duration of time.
  * @param requests - The requests to perform.
  * @param options - The options for the step.
- * @returns The results of the step.
+ * @returns The elapsed time for the step.
  */
-export async function sequenceStep<RT>(baseTime: number, requests: Record<string, Promise<RT>>, options: StepOptions) {
+export async function sequenceStep<RT>(baseDuration: number, requests: Record<string, Pending<RT>>, options: StepOptions) {
 	const startTime = Date.now();
-	const responses: Record<string, RT> = {};
-	const failures: Record<string, string> = {};
 
-	// A promise that resolves after a minimum time
-	const minTimePromise = new Promise(resolve => setTimeout(resolve, baseTime + options.minTimeMs));
+	// A promise that resolves after minimum time
+	const minTimePromise = new Promise(resolve => setTimeout(resolve, baseDuration + options.minTimeMs));
 
-	// Map each request to a promise
-	const promises = Object.entries(requests).map(async ([key, request]) => {
-		try {
-			const response = await request;
-			responses[key] = response
-			return response;
-		} catch (error) {
-			failures[key] = error instanceof Error ? error.message : (typeof error === 'string' ? error : JSON.stringify(error));
-		}
-	});
+	// A promise that resolves after maximum time
+	const maxTimePromise = new Promise<void>(resolve => setTimeout(resolve, baseDuration + options.maxTimeMs));
 
 	// Only resolve when all complete, or critical portion acheived and minimum time elapsed
-	const wrappedPromise = new Promise<Record<string, RT>>(resolve => {
-		promises.forEach(p => p.then(() => {
-			if (passesThreshold()) {
-				resolve(responses);
-			}
-		}));
+	const thresholdPromise = new Promise<void>(resolve => {
+		Object.values(requests).map(p => p.result())
+			.forEach(p => p.then(() => {
+				if (passesThreshold()) {
+					resolve();
+				}
+			}));
 	});
 
-	const results = await Promise.race([
-		wrappedPromise,
-		new Promise<Record<string, RT>>(resolve => setTimeout(() => resolve(responses), baseTime + options.maxTimeMs)),
-		minTimePromise.then(() => wrappedPromise)
+	await Promise.race([
+		thresholdPromise,
+		maxTimePromise,
+		minTimePromise.then(() => thresholdPromise)
 	]);
 
-	const outstanding = Object.fromEntries(Object.keys(requests)
-		.filter(k => !Object.prototype.hasOwnProperty.call(results, k))
-		.map(k => [k, requests[k]])
-	) as Record<string, Promise<RT>>;
-	// Note: don't add anything async after capturing outstanding as that could invalidate results and thus invalidate outstanding
-
-	return { results, failures, outstanding, actualTime: Date.now() - startTime } as StepResponse<RT>;
+	return Date.now() - startTime;
 
 	function passesThreshold() {
-		const responseCount = Object.keys(responses).length;
-		return (responseCount + Object.keys(failures).length) === promises.length
-			|| (
-				responseCount >= (options.minRatio * promises.length)
-				&& Date.now() - startTime >= baseTime + options.minTimeMs)
+		let responseCount = 0;
+		let failureCount = 0;
+		let allCount = 0;
+		Object.values(requests).forEach(r => {
+			responseCount += (r.isResponse as unknown as number);	// In javascript, 1 + true = 2
+			failureCount += (r.isError as unknown as number);
+			++allCount;
+		});
+		return (responseCount + failureCount) === allCount	// All requests have been resolved
+			|| (	// Or the minimum ratio has been met and the minimum time has elapsed
+				responseCount >= (options.minRatio * allCount)
+					&& Date.now() - startTime >= baseDuration + options.minTimeMs
+			)
 	}
 }
-

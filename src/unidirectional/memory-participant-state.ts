@@ -2,7 +2,7 @@ import { PrivateLink } from "../private-link";
 import { UniParticipantState } from "./participant-state";
 import { UniQueryState } from "./query-state";
 import { UniQuery } from "./query";
-import { ExternalReferee, Plan } from "../plan";
+import { Member, Plan } from "../plan";
 import { Address } from "../target";
 import { MemoryUniQueryState } from "./memory-query-state";
 import { CryptoHash } from "chipcryptbase";
@@ -10,7 +10,7 @@ import { CryptoHash } from "chipcryptbase";
 export interface PeerAddress {
 	address: Address;
 	selfReferee: boolean;					// Referee preferences of the peer
-	externalReferees?: ExternalReferee[];
+	otherMembers?: Record<string, Member>;
 	linkId: string;
 }
 
@@ -40,7 +40,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 	async createQueryState(plan: Plan, query: UniQuery, linkId?: string): Promise<UniQueryState> {
 		let entry = this._statesBySession[query.sessionCode];
 		if (entry && Object.prototype.hasOwnProperty.call(entry, linkId ?? '')) {
-			throw new Error(`Query '${query.sessionCode}' already in progress`);
+			throw new Error(`Query '${query.sessionCode}' already in progress`);	// Don't expose linkId in error message
 		}
 		if (!entry) {
 			entry = {};

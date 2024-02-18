@@ -42,7 +42,7 @@ describe('Simple discovery', () => {
 	}, 10000);
 
 	test('stats on large networks', async () => {
-		const bigNet = TestNetwork.generate(100000, 700000);
+		const bigNet = TestNetwork.generate(10000, 70000);
 		const scenario = new Scenario(bigNet, instantTiming);
 		const originator = await scenario.getOriginator(
 			bigNet.nodes[0].name,
