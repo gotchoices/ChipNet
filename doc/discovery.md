@@ -67,3 +67,53 @@ Timing is carefully orchestrated during the route discovery process. With each d
 * Maximum time - Regardless of number of respondants, if the maximum time (above baseline) has transpired, the sequence is over
 
 If a response arrives after a sequence completes, it will be included in the next sequence, if there is one.
+
+## Query economics
+
+Note: mostly not implemented
+
+The cost of a query is determined by the aggregate number of nodes searched.  Every node is incentized to keep costs to a minimum because high-cost queries will degrade future standing.
+* The cumulative cost associated with sub-links is kept by each node, and aggregated back up the query.
+* For nodes with high fan-outs, accumulated costs from prior queries are used to prioritize sub-links to reduce effective fanout.
+* Maximum fanout is determined by cumulative cost of incoming query node
+* For a node with trimmed fan-out, de-prioritized sub-links are treated like nodes at a deeper level.  For instance, if a node has 1,000 sub-links and a max fanout of 100, the first level query (relative to the node) will only propagate to the 100 sub-links with the lowest cumulative costs.  When the node receives the next query for a level deeper, it queries the next level with the prior 100 sub-links, but may query first level with the rest of the nodes.
+* A node can choose to penalize a disproportionately high cost sub-link, but skipping one or more propagations
+* Sub-nodes also account for query costs against their up-stream (querying) nodes.  This disincentivizes up-stream nodes from performing any more queries than necessary.
+
+This scheme avoids a pile-on effect for successful paths, favoring diversity of pathways, and disincentivizes over-searching.
+
+TODO:
+* Give "cumulative cost" a better name.  Score?  Effort?
+
+## Pathologies
+
+* Too deep - a node attempts to query above agreed upon thresholds
+  * Incentives - allows the node to discover pathways despite extreme aggregate expense
+  * Disincentives - accumulates cost
+  * Mitigations:
+    * [x] All nodes check for max depth.  Sub-links will fail one-level deeper
+    * [ ] All nodes have a max-cost cut-off.
+* Too wide - a node fans out extremely widely, resulting in large numbers of queried nodes for every received query.  This is actually okay from a self-search (first level) perspective, but undesirable in terms of prapagation.
+  * Incentives - results in more successes
+  * Disincentives:
+    * increases costs - slows future searching
+    * 
+* Unsatisfied originator - A root node receives one or more valid paths from one or more sub-links, but continues searching deeper on sub-links where a match wasn't found.
+  * Incentives - this could give an Originator "more options" to choose from to complete the transaction.
+  * Disincentives:
+    * accululates more cost against originator
+    * additional paths would be deeper than already discovered ones
+    * takes more time
+  * Mitigations:
+    * [x] Maximum depth will be eventually reached, and is checked by all nodes
+* Statistics hiding - not disclosing the true accumulation of stats from sub-queries
+  * Incentives - Reduces apparent costs
+  * Mitigations:
+    * [ ] Perhaps the cost associated with a successful result is based on an assumed cost per path depth, rather than reported statistics.
+* Not de-prioritizing based on cumulative costs
+  * Disincentives - accumulates high costs against small pool of sub-nodes
+* Lazy nodes - don't search or propagate requests
+  * Incentives - minimizes resource expendatures
+  * Disincentives - does not accomplish transactions
+* Denial of service - unnecessary queries
+  * Disincentives - accumulates costs uselessly
