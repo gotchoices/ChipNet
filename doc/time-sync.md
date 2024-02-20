@@ -4,8 +4,10 @@
 DRAFT: This is a design concept and has not yet been implemented
 
 Depth First Traversal entails synchonizing many parallel search paths.  There are several reasons to carefully synchronize the timing of the traversal:
-* If the parallel search paths are not synchronized, a certain unfairness unfolds, where nodes who respond slowly (for reasons of network, processing, or otherwise) are allowed to slip behind in depth levels, thus penalizing faster nodes with increased burden.
-* As depth increases, timing differences accumulate, and since the number of nodes exponentially increases with depth, the vast majority of nodes are also the most out of sync.
+* If the per-cycle time budget is too short, sub-query results are omitted, causing deeper queries and fewer successful results in general.
+* If the time budget is too long, the next depth of query cycle is artificially delayed to avoid imbalancing the query
+  * With imbalance, a certain unfairness unfolds.  When nodes who respond slowly (for reasons of network, processing, or otherwise) are allowed to slip behind in depth levels, this penalizes faster nodes with disproportionate burden.
+* As depth increases, timing differences accumulate, and since the number of nodes exponentially increases with depth, the vast majority of nodes are also the most out of sync., compounding the above ineffeciency and fairness considerations.
 
 Optimal fairness would be acheived if unlimited time was given to each sub-query, such that all sub-queries would resolve to completion before beginning the next level.  This is not practical because:
 * Faults may result in some sub-queries never completing at all
