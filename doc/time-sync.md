@@ -1,15 +1,15 @@
-# THIST - Thresholded HIstogram Sub-timing 
-## Time Synchronization of Distributed Depth First Traversal
+# Time Synchronization via THIST
+Thresholded HIstogram Sub-timing (THIST) for Distributed Depth First Traversal
 
-DRAFT: This is a design concept and has not yet been implemented
+DRAFT: This is a design concept and has only partly been implemented
 
-Depth First Traversal entails synchonizing many parallel search paths.  There are several reasons to carefully synchronize the timing of the traversal:
+Depth First Traversal entails synchronizing many parallel search paths.  There are several reasons to carefully synchronize the timing of the traversal:
 * If the per-cycle time budget is too short, sub-query results are omitted, causing deeper queries and fewer successful results in general.
 * If the time budget is too long, the next depth of query cycle is artificially delayed to avoid imbalancing the query
   * With imbalance, a certain unfairness unfolds.  When nodes who respond slowly (for reasons of network, processing, or otherwise) are allowed to slip behind in depth levels, this penalizes faster nodes with disproportionate burden.
-* As depth increases, timing differences accumulate, and since the number of nodes exponentially increases with depth, the vast majority of nodes are also the most out of sync., compounding the above ineffeciency and fairness considerations.
+* As depth increases, timing differences accumulate, and since the number of nodes exponentially increases with depth, the vast majority of nodes are also the most out of sync., compounding the above inefficiency and fairness considerations.
 
-Optimal fairness would be acheived if unlimited time was given to each sub-query, such that all sub-queries would resolve to completion before beginning the next level.  This is not practical because:
+Optimal fairness would be achieved if unlimited time was given to each sub-query, such that all sub-queries would resolve to completion before beginning the next level.  This is not practical because:
 * Faults may result in some sub-queries never completing at all
 * Pure fairness regresses to lowest common denominator performance
 
@@ -19,20 +19,20 @@ To optimize towards fairness, without degenerating to lowest common denominator 
 * Subsequent queries from that node are given a time budget, with the estimated communication time subtracted.
 * The originator (root-most) node establishes a time budget based on a threshold that:
   * optimizes the number of nodes to time ratio
-  * accomodates the most likely time taken for the next depth based on prior leaf-level performance.
+  * accommodates the most likely time taken for the next depth based on prior leaf-level performance.
 
 To accomplish this:
 * Statistics are maintained and propagated regarding per-leaf response times through each traversal path
   * Each node factors in the one-way communication delay and processing time for each sub-node
-  * A histogram-like structure is used to compress the statistics - The [T-Digest algorithm](https://github.com/tdunning/t-digest/blob/main/docs/t-digest-paper/histo.pdf) may be ideal for this
+  * A histogram-like structure is used to compress the statistics - The [Sparstogram](https://github.com/Digithought/Sparstogram) may be ideal for this
   * A count of unresponded (late) sub-nodes is also propagated in aggregate.
 * A time budget is given to each sub-node: ![time budget diagram](figures/time-sync-budget.svg)
   * For the root node, a total time budget is based on optimizing for the ideal cut-off on the curve of nodes to time (top-n% ratio)
     * The number of unresponded nodes is also factored in to the cut-off
   * The estimated one-way network time to a given sub-node is subtracted from the overall budget, when given to the sub-node.
-  * A level-one search/communication time is always appended to the time, based on historical precidence and/or configuration.
+  * A level-one search/communication time is always appended to the time, based on historical precedence and/or configuration.
 * When the budgeted time elapses for a node, a response is given, regardless of the response ratio
-  * Nodes may reject attempting for overly narrow timeframes.
+  * Nodes may reject attempting for overly narrow time-frames.
 * Responses that arrive after the budget cut-off are accounted for as though they were a level deeper
   * If a late response has arrived by the next query, it is included in the pool of sub-queries per normal
   * If a late response has not arrived by the next query, it falls a level behind (off-level)

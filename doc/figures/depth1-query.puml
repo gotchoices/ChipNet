@@ -1,0 +1,14 @@
+@startuml
+'left to right direction
+
+node "N1 (originator)" as N1
+
+node N2 #LightBlue
+node N3 #LightBlue
+node N4 #LightBlue
+
+N1 --> N2 : L1
+N1 --> N3 : L2
+N1 --> N4 : L3
+
+@enduml

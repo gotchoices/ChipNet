@@ -1,1 +1,0 @@
-* Potentially demote historically fruitless paths to lower "depths".  e.g. only start down certain paths at higher depths
