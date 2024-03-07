@@ -1,6 +1,6 @@
 import { Plan } from "./plan";
 import { Terms } from "./types";
-import { UniQuery } from "./unidirectional/query";
+import { Intent, UniQuery } from "./unidirectional/query";
 import { Reentrance } from "./reentrance";
 
 /**
@@ -37,12 +37,12 @@ export interface QueryRequest {
 export type QueryPeerFunc = (request: QueryRequest, linkId: string) => Promise<QueryResponse>;
 
 /**
- * A function that compares the terms on a link with the query terms and returns the terms as constained by the match or undefined if there is no match
- * @param linkTerms The terms on the link
- * @param queryTerms The terms in the query
- * @returns The terms that match, or undefined if there is no match
+ * A function that compares the intents & terms on a link with the query terms and returns the intent as constrained by the match or undefined if there is no match
+ * @param linkIntent The intent on the link
+ * @param queryTerms The intents in the query
+ * @returns The intent that matches, or undefined if there is no match
  */
-export type MatchTermsFunc = (linkTerms: Terms, queryTerms: Terms) => Terms | undefined;
+export type NegotiateIntentFunc = (linkIntent: Intent, queryIntents: Intent[]) => Intent | undefined;
 
 /**
  * A function that negotiates the referees and other aspect of the plan

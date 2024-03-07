@@ -8,7 +8,7 @@ import { UniParticipantOptions } from '../src/unidirectional/participant-options
 import { UniParticipantState } from '../src/unidirectional/participant-state';
 import { PrivateLink } from '../src/private-link';
 import { Address } from '../src/target';
-import { QueryRequest } from '../src';
+import { Intent, QueryRequest } from '../src';
 import { DummyAsymmetricalVault } from './dummy-asymmetrical-vault';
 import { DummyCryptoHash } from './dummy-cryptohash';
 
@@ -26,7 +26,7 @@ export class Scenario {
 
 	public stats = {
 		totalNetworkRequests: 0,
-		networkRequeuestByDepth: [] as number[],
+		networkRequestByDepth: [] as number[],
 	};
 
 	constructor(
@@ -42,7 +42,7 @@ export class Scenario {
 			.reduce((c, node) => {
 				c[node.name] = new MemoryUniParticipantState(
 					this.cryptoHash,
-					network.nodeLinks(node).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
+					network.nodeLinks(node).map(l => ({ id: l.name, intent: l.intent } as PrivateLink)),
 					network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
 					{ key: node.name }
 				);
@@ -54,10 +54,17 @@ export class Scenario {
 				const participantOptions = new UniParticipantOptions(
 					this.makeQueryPeerFunc(node),
 					true,
-					(linkTerms, queryTerms) =>
-						linkTerms['balance'] >= queryTerms['balance']
-							? { balance: Math.min(linkTerms['balance'], queryTerms['balance']) }
-							: undefined,
+					(linkIntent, queryIntents) => {	// For now just filter to only lift intents and take the minimum of the requested and available balances
+						const liftIntent = queryIntents.find(intent => intent.code === 'L');
+						if (!liftIntent) {
+							return undefined;
+						}
+						return { ...liftIntent,
+							terms: linkIntent.terms['balance'] >= liftIntent.terms['balance']
+								? { balance: Math.min(linkIntent.terms['balance'], liftIntent.terms['balance']) }
+								: undefined
+						} as Intent;
+					}
 				);
 				participantOptions.stepOptions.maxTimeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING
 				participantOptions.maxQueryAgeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING
@@ -80,7 +87,7 @@ export class Scenario {
 			// Update stats
 			this.stats.totalNetworkRequests++;
 			// TODO: path information is no longer relayed in the request, so we need more callbacks or to put this into state
-			//this.stats.networkRequeuestByDepth[plan.path.length] = (this.stats.networkRequeuestByDepth[plan.path.length] || 0) + 1;
+			//this.stats.networkRequestByDepth[plan.path.length] = (this.stats.networkRequestByDepth[plan.path.length] || 0) + 1;
 
 			// Find node
 			const linkNode = this.network.nodeLinks(node).find(l => l.name === linkId);
@@ -104,11 +111,11 @@ export class Scenario {
 		const originatorOptions = new UniOriginatorOptions(this.makeQueryPeerFunc(originatorNode), true);
 		const originatorState = await MemoryUniOriginatorState.build(
 			originatorOptions,
-			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, terms: l.terms } as PrivateLink)),
+			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, intent: l.intent } as PrivateLink)),
 			new DummyAsymmetricalVault(originatorName),
 			this.cryptoHash,
 			{ address: target /* TODO: unsecret */ },
-			{ balance: 100 }
+			[{ code: 'L', version: 1, terms: { balance: 100 } }]	// TODO: test other than lift intent
 		);
 		const participant = this.participants[originatorName]
 

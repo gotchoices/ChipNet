@@ -16,9 +16,9 @@ beforeEach(() => {
 			new TestNode('N4'),
 		],
 		[
-			new TestLink('L1', 'N1', 'N2', { balance: 500 }),
-			new TestLink('L2', 'N2', 'N3', { balance: 500 }),
-			new TestLink('L3', 'N2', 'N4', { balance: 500 }),
+			new TestLink('L1', 'N1', 'N2', { code: 'L', version: 1, terms: { balance: 500 } }),
+			new TestLink('L2', 'N2', 'N3', { code: 'L', version: 1, terms: { balance: 500 } }),
+			new TestLink('L3', 'N2', 'N4', { code: 'L', version: 1, terms: { balance: 500 } }),
 		]
 	);
 
@@ -61,6 +61,7 @@ describe('Simple discovery', () => {
 		* Finding at different depths
 		* Finding multiple routes
 		* Finding based on node identity (not known to peers)
+		* Finding comms and mixed intents
 		* Deeper and wider networks
 		* Various network timing scenarios
 		* Various network failures

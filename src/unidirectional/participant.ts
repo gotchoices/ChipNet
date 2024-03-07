@@ -58,13 +58,13 @@ export class UniParticipant {
 			: { canReenter: true };
 	}
 
-	/** negotiate terms and plans for any matches, then filter any with rejected terms or plans */
+	/** negotiate intents and plans for any matches, then filter any with rejected intents or plans */
 	private processAndFilterPlans(matches: Plan[], query: UniQuery) {
 		return (matches
-			// Renegotiate terms for each step of path for each plan
-			.map(plan => ({ ...plan, path: plan.path.map(p => ({ ...p, terms: this.options.negotiateTerms(p.terms, query.terms) })) }))
-			// Filter out plans that have any links with rejected terms
-			.filter(plan => plan.path.every(p => p.terms)) as Plan[])
+			// Renegotiate intents for each step of path for each plan
+			.map(plan => ({ ...plan, path: plan.path.map(p => ({ ...p, intent: this.options.negotiateIntent(p.intent, query.intents) })) }))
+			// Filter out plans that have any links with rejected intents
+			.filter(plan => plan.path.every(p => p.intent)) as Plan[])
 			// Negotiate the plan (ie. vet and/or add external referees if needed)
 			.map(p => this.getNegotiatePlan()(p))
 			// Filter out any plans that were rejected by the negotiation
@@ -72,13 +72,13 @@ export class UniParticipant {
 	}
 
 	private async processAndFilterCandidates(candidates: PrivateLink[], plan: Plan, query: UniQuery) {
-		// Determine any eligable terms and include nonces for all candidates
+		// Determine any eligible intents and include nonces for all candidates
 		const resolvedCandidates = (await Promise.all(candidates.map(async c => {
-			const terms = this.options.negotiateTerms(c.terms, query.terms);
-			const publicLink: PublicLink | undefined = terms ? { nonce: await this.cryptoHash.makeNonce(c.id, query.sessionCode), terms } : undefined;
+			const intent = this.options.negotiateIntent(c.intent, query.intents);
+			const publicLink: PublicLink | undefined = intent ? { nonce: await this.cryptoHash.makeNonce(c.id, query.sessionCode), intent } : undefined;
 			return { private: c, public: publicLink };
 		})))
-			// Only consider candidates that have acceptable terms
+			// Only consider candidates that have acceptable intents
 			.filter(c => c.public) as { private: PrivateLink, public: PublicLink }[];
 
 		// Detect cycles in the candidates
@@ -93,7 +93,7 @@ export class UniParticipant {
 		}
 
 		const filteredCandidates = resolvedCandidates.filter(c => !cycles.has(c.public.nonce));
-		return filteredCandidates.map(c => ({ linkId: c.private.id, terms: c.public.terms } as QueryCandidate));
+		return filteredCandidates.map(c => ({ linkId: c.private.id, intent: c.public.intent } as QueryCandidate));
 	}
 
 	/** Query has already passed through this node.  Search one level further. */
@@ -131,7 +131,7 @@ export class UniParticipant {
 			candidatesToRequestAndNonces.map(([c, nonce]) => [c.linkId,
 				new Pending(this.options.queryPeer(c.isReentry
 						? { reentrance }
-						: { first: { plan: appendPath(context.plan, { nonce , terms: c.terms! }), query: context.query }  },
+						: { first: { plan: appendPath(context.plan, { nonce , intent: c.intent! }), query: context.query }  },
 					c.linkId
 				))]));
 

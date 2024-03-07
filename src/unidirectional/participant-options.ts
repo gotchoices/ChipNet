@@ -1,4 +1,4 @@
-import { MatchTermsFunc, QueryPeerFunc } from "../query-func";
+import { NegotiateIntentFunc, QueryPeerFunc } from "../query-func";
 import { StepOptions } from "../sequencing";
 import { Member, Plan } from "../plan";
 
@@ -12,7 +12,7 @@ export class UniParticipantOptions {
 	constructor(
 		public queryPeer: QueryPeerFunc,
 		public selfReferee: boolean,
-		public negotiateTerms: MatchTermsFunc,
+		public negotiateIntent: NegotiateIntentFunc,
 		public selfSecret?: string,
 		public otherMembers?: Record<string, Member>
 	) { }

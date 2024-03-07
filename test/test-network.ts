@@ -1,3 +1,4 @@
+import { Intent } from '../src';
 import { Terms } from '../src/types';
 
 export class TestNetwork {
@@ -40,7 +41,7 @@ export class TestNetwork {
 			const node2Index = Math.floor(Math.random() * nodeCount);
 			const node1 = nodes[node1Index];
 			const node2 = nodes[node2Index];
-			const link = new TestLink(`L${i}`, node1.name, node2.name, { balance: Math.random() * 1000 - 500 });
+			const link = new TestLink(`L${i}`, node1.name, node2.name, { code: 'L', version: 1, terms: { balance: Math.random() * 1000 - 500 } });
 			links.push(link);
 		}
 
@@ -69,28 +70,28 @@ export class TestLink {
 	name: string;
 	node1: string;
 	node2: string;
-	terms: Terms;
+	intent: Intent;
 
-	constructor(name: string, node1: string, node2: string, terms: Terms) {
+	constructor(name: string, node1: string, node2: string, intent: Intent) {
 		this.name = name;
 		this.node1 = node1;
 		this.node2 = node2;
-		this.terms = terms;
-	}
-
-	invertedTerms() {
-		return Object.entries(this.terms).reduce((acc, [key, value]) => {
-			acc[key] = typeof value === 'number' ? -value : value;
-			return acc;
-		}, {} as Terms);
+		this.intent = intent;
 	}
 
 	invertedLink() {
-		const link = new TestLink(this.name, this.node2, this.node1, this.invertedTerms());
+		const link = new TestLink(this.name, this.node2, this.node1, { ...this.intent, terms: invertedTerms(this.intent.terms) });
 		return link;
 	}
 
 	toString() {
 		return `${this.node1} --${this.name}--> ${this.node2}`;
 	}
+}
+
+function invertedTerms(terms: Terms) {
+	return Object.entries(terms).reduce((acc, [key, value]) => {
+		acc[key] = typeof value === 'number' ? -value : value;
+		return acc;
+	}, {} as Terms);
 }

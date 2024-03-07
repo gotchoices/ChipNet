@@ -1,7 +1,7 @@
-import { Terms } from "./types";
+import { Intent } from ".";
 
 export interface PrivateLink {
     id: string;
-    terms: Terms;
+    intent: Intent;
 }
 

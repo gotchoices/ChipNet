@@ -9,10 +9,7 @@
 		"strict": true,
 		"esModuleInterop": true,
 		"sourceMap": true,
-		"types": [
-			"node",
-			"jest"
-		]
+		"types": [ "jest" ]
 	},
 	"include": [
 		"src", "test"

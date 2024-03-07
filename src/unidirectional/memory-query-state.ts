@@ -34,7 +34,7 @@ export class MemoryUniQueryState implements UniQueryState {
 		const match = peer?.linkId ? this.state.getPeerLinkById(peer?.linkId) : undefined;
 		return match
 			? [{
-				path: [...this.plan.path, { nonce: await this.cryptoHash.makeNonce(match.id, this.query.sessionCode), terms: match.terms } as PublicLink],
+				path: [...this.plan.path, { nonce: await this.cryptoHash.makeNonce(match.id, this.query.sessionCode), intent: match.intent } as PublicLink],
 				participants: [peer!.address.key],
 				members: { [peer!.address.key]: { types: peer!.selfReferee ? [1,2] : [1] }, ...peer!.otherMembers }
 			}]

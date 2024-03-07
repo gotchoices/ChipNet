@@ -1,4 +1,4 @@
-import { Terms } from "./types";
+import { Intent } from ".";
 
 /*
 	Node: Plan is distinct from Topology because it is constructed up the tree
@@ -7,7 +7,7 @@ import { Terms } from "./types";
 
 export interface PublicLink {
 	nonce: string;
-	terms: Terms;
+	intent: Intent;
 }
 
 /** 1 = Participant, 2 = Referee.  Node: All nodes can act as relays. */
