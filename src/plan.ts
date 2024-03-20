@@ -1,13 +1,13 @@
-import { Intent } from ".";
-
 /*
-	Node: Plan is distinct from Topology because it is constructed up the tree
+	Note: Plan is distinct from ChipSync Topology because it is constructed up the tree
 	first by path, then back down by participant.
 */
 
+import { Intent } from "./intent";
+
 export interface PublicLink {
 	nonce: string;
-	intent: Intent;
+	intents: Intent[];
 }
 
 /** 1 = Participant, 2 = Referee.  Node: All nodes can act as relays. */

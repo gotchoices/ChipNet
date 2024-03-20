@@ -1,7 +1,7 @@
-import { Intent } from ".";
+import { Intent } from "./intent";
 
 export interface PrivateLink {
     id: string;
-    intent: Intent;
+    intents: Intent[];
 }
 

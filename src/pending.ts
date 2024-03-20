@@ -1,6 +1,8 @@
 export class Pending<T> {
 	response?: T;
 	error?: unknown;
+	t1 = Date.now();
+	duration?: number;
 
 	get isResponse(): boolean {
 		return this.response !== undefined;
@@ -28,8 +30,11 @@ export class Pending<T> {
 		public promise: Promise<T>
 	) {
 		promise.then(response => {
+			this.duration = Date.now() - this.t1;
 			this.response = response;
+			return response;
 		}, error => {
+			this.duration = Date.now() - this.t1;
 			this.error = error;
 		});
 	}

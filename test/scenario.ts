@@ -42,7 +42,7 @@ export class Scenario {
 			.reduce((c, node) => {
 				c[node.name] = new MemoryUniParticipantState(
 					this.cryptoHash,
-					network.nodeLinks(node).map(l => ({ id: l.name, intent: l.intent } as PrivateLink)),
+					network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intent } as PrivateLink)),
 					network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
 					{ key: node.name }
 				);
@@ -111,7 +111,7 @@ export class Scenario {
 		const originatorOptions = new UniOriginatorOptions(this.makeQueryPeerFunc(originatorNode), true);
 		const originatorState = await MemoryUniOriginatorState.build(
 			originatorOptions,
-			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, intent: l.intent } as PrivateLink)),
+			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, intents: l.intent } as PrivateLink)),
 			new DummyAsymmetricalVault(originatorName),
 			this.cryptoHash,
 			{ address: target /* TODO: unsecret */ },
