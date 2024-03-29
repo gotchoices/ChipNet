@@ -1,0 +1,51 @@
+@startuml
+'left to right direction
+
+node "N1 (originator)" as N1
+
+node N20
+node N30
+node N40 #LightBlue
+
+node N100 #LightBlue
+node N101 #LightBlue
+node N102 #LightBlue
+node N110 #LightBlue
+node N111 #LightBlue
+node N112 #LightBlue
+node N121 #LightBlue
+node N122 #LightBlue
+node N123 #LightBlue
+node N140
+node N150
+node N1000
+node N1001
+node N1010
+node N1020
+node N1021
+node N1900 as "..."
+
+N1 --> N20
+N1 --> N30
+N1 --> N40
+
+N20 --> N100
+N20 --> N101
+N20 --> N102
+N30 --> N110
+N30 --> N111
+N30 --> N112
+N40 --> N121
+N40 --> N122
+N40 --> N123
+N40 --> N140 #LightBlue
+N40 --> N150 #LightBlue
+
+N121 --> N1000 #LightBlue
+N121 --> N1001 #LightBlue
+N122 --> N1010 #LightBlue
+N123 --> N1020 #LightBlue
+N123 --> N1021 #LightBlue
+N40 -[dotted]-> N1900 : "..."
+
+@enduml

@@ -10,7 +10,9 @@ While searching a network generally presents many challenges, it is also a fairl
 * **bi-directional searches** - the worst case unidirectional query in a flat, random scenario, requires "n/x" (x being average fan-out) nodes to be interrogated (assuming discovery is only needed to one-degree of separation).  Under bi-directional querying, the worst case query in a flat, random scenario is "Xth root of n" nodes.  While bi-directional searching may not always be possible for anonymity, there are techniques we employ that allow it even without disclosing the identities of the origin or target nodes.
 * **routing only nodes** -  having to follow only open balances significantly reduces the search fan-out, but it is possible to search comm channels more generally, then open up a bi-directional return route.
 * **advertising** - each level of indirection represents a combinatorial growth is searched nodes.  By preemptively giving real or transient identification to even 2 or 3 levels of transitive peers, search cost is significantly lowered.
-
+* **portals** - parties wishing to remain anonymous, may disclose (not necessarily direct) peers who have public address in order to establish bi-directional searches.
+* **caching** - while limited to disclosed logical addresses, and primarily to comms links, path caches can help to tremendously shorten search distance
+  
 Let's go deeper into the two general types of discovery:
 
 * Unidirectional – Finds a target node, starting from an origin node
@@ -38,7 +40,7 @@ Notes:
 (Not supported yet)
 
 The bidirectional algorithm proceeds similar to the unidirectional search, with the following differences:
-* A synchronizing message is sent from the originator to the target to initiate the search, and measure time delay
+* A synchronizing message is sent from the originator to the target (through the communications path) to initiate the search, and measure time delay
 * With each phase of the query, the originator sends a follow-up synchronization message (including the time budget) to the target and delays for half of the round-trip time before executing the phase.  This attempts to have the two nodes initiate the search phase at nearly the same time.
 * Following each phase, the originator interrogates the target for results and timing from the prior phase and the originator depth-level adjusts and integrates this into the timings for the next phase.  The target should have completed the phase by this interrogation, but should block to respond if not.
 * For participants, in addition to searching for a match when a query arrives, looks to see if the same query has already arrived from a different path, with the opposing end.  
@@ -71,9 +73,26 @@ A participant is a node through which we are attempting to discover a path.  The
 * **Intermediate** - A regular participant
 * **Terminus** - The intended target of discovery
 
+### Plan
+
+A plan includes a set of members, participants, and the path of links connecting those participants.
+
 ### Link
 
-A link is a directed edge (e.g. tally in MyCHIPs), between nodes.  Note that in general there may be multiple links that lead to and from the same participant node.  _Link_ refers to a trade/trust link, not specifically a communications link, though it does imply that a communications link can be established.
+A link is a directed edge (e.g. tally in MyCHIPs), between nodes.  Note that in general there may be multiple links that lead to and from the same participant node.  _Link_ refers to a trade/trust link or potentially only a communications link, as specified by one or more _intents_.
+
+### Intent
+
+An intent designates what purpose or purposes a given link is being selected to provide:
+
+* **C (communications)** - All links should have this intent.  The terms provide details regarding the communications characteristics.  A comms intent implies that the communications element of a participant or referee part of a transaction can take place, or that the link can act as a relay.
+* **L (lifts)** - able to provide a "lift" credit financial transaction.  See MyCHIPs for details.  The terms provide the details.
+
+Intents must form complete chains along a given path.  In other words, if any participant in a given path does not include a Lift intent, then that path is collectively considered to not support lifts, and any lift intent in a link along that path should be ignored or deleted.
+
+### Terms
+
+Terms are specific key/values contained within intents, designating the details of that intent.  The semantics of terms within intents are directly handled by the discovery system, rather they are managed through callbacks.
 
 ### Session Code
 
@@ -135,18 +154,18 @@ TODO:
 ## Pathologies
 
 * Too deep - a node attempts to query above agreed upon thresholds
-  * Incentives - allows the node to discover pathways despite extreme aggregate expense
-  * Disincentives - accumulates cost
+  * Incentives: allows the node to discover pathways despite extreme aggregate expense
+  * Disincentives: accumulates cost
   * Mitigations:
     * [x] All nodes check for max depth.  Sub-links will fail one-level deeper
     * [ ] All nodes have a max-cost cut-off.
 * Too wide - a node fans out extremely widely, resulting in large numbers of queried nodes for every received query.  This is actually okay from a self-search (first level) perspective, but undesirable in terms of propagation.
-  * Incentives - results in more successes
+  * Incentives: results in more successes
   * Disincentives:
     * increases costs - slows future searching
     * 
 * Unsatisfied originator - A root node receives one or more valid paths from one or more sub-links, but continues searching deeper on sub-links where a match wasn't found.
-  * Incentives - this could give an Originator "more options" to choose from to complete the transaction.
+  * Incentives: this could give an Originator "more options" to choose from to complete the transaction.
   * Disincentives:
     * accumulates more cost against originator
     * additional paths would be deeper than already discovered ones
@@ -154,13 +173,26 @@ TODO:
   * Mitigations:
     * [x] Maximum depth will be eventually reached, and is checked by all nodes
 * Statistics hiding - not disclosing the true accumulation of stats from sub-queries
-  * Incentives - Reduces apparent costs
+  * Incentives: Reduces apparent costs
   * Mitigations:
     * [ ] Perhaps the cost associated with a successful result is based on an assumed cost per path depth, rather than reported statistics.
-* Not de-prioritizing based on cumulative costs
-  * Disincentives - accumulates high costs against small pool of sub-nodes
 * Lazy nodes - don't search or propagate requests
-  * Incentives - minimizes resource expenditures
-  * Disincentives - does not accomplish transactions
+  * Incentives: minimizes resource expenditures
+  * Disincentives: does not accomplish transactions
+* Liars - indicate false paths
+  * Incentives: Be used as a pathway
+  * Mitigations: Will not achieve transaction promise - waste of resources
 * Denial of service - unnecessary queries
-  * Disincentives - accumulates costs uselessly
+  * Disincentives: accumulates costs uselessly
+* Not de-prioritizing based on cumulative costs
+  * Disincentives: accumulates high costs against small pool of sub-nodes
+
+
+Why participate?
+
+Lift:
+* Originator - make payment, clear balances [term?]
+* Terminus (target) - get paid, clear balances
+* Intermediate - clear balances, network intelligence [failures, successes, frequency - through partners]
+* 3rd party Referee - subscription payment?  Goodwill?  Promotion?
+* Comms relays - network intelligence - speeds up further transactions

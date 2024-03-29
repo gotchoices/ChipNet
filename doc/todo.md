@@ -11,6 +11,7 @@
   * Finish intentsSatisfied function
 * Design test and implement Economics
   * Policing - Quotas & metrics
+* Discovery of (not necessarily direct) peers with public addresses
 * Advertising - push out open balances to nearby neighbors - and/or probe out when expecting payment
 * Do something with serialization functionality (move into own library?)
 * For memory participant state, remove query details for stale queries to remove overhead for old queries
