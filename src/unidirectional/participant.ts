@@ -11,7 +11,7 @@ import { UniParticipantOptions } from "..";
 import { AsymmetricVault, CryptoHash } from "chipcryptbase";
 import { Pending } from "../pending";
 import { Sparstogram } from "sparstogram";
-import { intentsSatisfied } from "../intent";
+import { Intent, intentsSatisfied } from "../intent";
 
 export class UniParticipant {
 	constructor(
@@ -38,7 +38,7 @@ export class UniParticipant {
 		await this.validateQuery(plan, query, linkId);
 		await this.state.validateNewQuery(query.sessionCode, linkId);	// Note: throws if there's already a query in progress
 
-		const context = await this.state.createContext(plan, query);
+		const context = await this.state.createContext(plan, query);	// Also searches and/or enumerates candidates
 
 		const plans = this.processAndFilterPlans(context.plans || [], query);
 
@@ -66,11 +66,26 @@ export class UniParticipant {
 
 	/** negotiate intents and plans for any matches, then filter any with rejected intents or plans */
 	private processAndFilterPlans(matches: Plan[], query: UniQuery) {
-		return (matches
-			// Renegotiate intents for each step of path for each plan
-			.map(plan => ({ ...plan, path: plan.path.map(p => ({ ...p, intents: p.intents.map(intent => this.options.negotiateIntent(intent, query.intents)) })) }))
-			// Filter out plans that have any links with rejected intents
-			.filter(plan => plan.path.every(p => intentsQualify(p.intents, query.intents)) as Plan[])
+		if (!matches.length) {
+			return [];
+		}
+		// For each match, compute which intent types are supported across the entire path
+		const supportedIntentCodes = matches.map(plan => {
+			const firstCodes = Array.from(plan.path[0].intents.reduce((p, c) => p.add(c.code), new Set<string>()));
+			return firstCodes.filter(code => plan.path.every(link => link.intents.some(intent => intent.code === code)));
+		});
+		return matches
+			.map((plan) => ({
+				...plan,
+				path: plan.path.map(link => ({ ...link, intents: link.intents.map(intent => this.options.negotiateIntent(intent, query.intents)).filter(Boolean) as Intent[] }))
+			}))
+			// Filter any intents from plans that aren't supported by all links in the path
+			.map((plan, i) => ({
+				...plan,
+				path: plan.path.map(link => ({ ...link, intents: link.intents.filter(intent => supportedIntentCodes[i].includes(intent.code)) }))
+			}))
+			// Filter out plans that have no intents
+			.filter(plan => plan.path.every(p => p.intents.length))
 			// Negotiate the plan (ie. vet and/or add external referees if needed)
 			.map(p => this.getNegotiatePlan()(p))
 			// Filter out any plans that were rejected by the negotiation
@@ -81,7 +96,7 @@ export class UniParticipant {
 		// Determine any eligible intents and include nonces for all candidates
 		const resolvedCandidates = await Promise.all(candidates
 			.map(candidate => ({ ...candidate, intents: (candidate.intents ?? []).map(intent => this.options.negotiateIntent(intent, query.intents)).filter(Boolean) }))
-			.filter(({ intents }) => intents?.length )	// Filter out candidates with no eligible intents
+			.filter(({ intents }) => intents?.length)	// Filter out candidates with no eligible intents
 			.map(async candidate => ({ candidate, nonce: await this.cryptoHash.makeNonce(candidate.linkId, query.sessionCode) }))
 		);
 
@@ -132,20 +147,20 @@ export class UniParticipant {
 		const extremes = { earliest: Infinity, latest: 0 };
 		const newRequests = Object.fromEntries(
 			toRequestWithNonces.map(([c, nonce]) => [c.linkId,
-				new Pending(
-					this.options.queryPeer(c.request
-							? { reentrance, budget: budget - (c.request.duration! - c.request.response!.stats.gross) }
-							: { first: { plan: appendPath(context.plan, { nonce , intents: c.intents! }), query: context.query }, budget },
-						c.linkId
-					).then(r => {
-						if (c.depth === active.depth) {	// Only affect timings if in-phase
-							this.captureTiming(t2, r.stats, timings, extremes,
-								() => void this.state.reportTimingViolation(context.query, c.linkId),	// Fire and forget
-							)
-						}
-						return r;
-					})
-				)]));
+			new Pending(
+				this.options.queryPeer(c.request
+					? { reentrance, budget: budget - (c.request.duration! - c.request.response!.stats.gross) }
+					: { first: { plan: appendPath(context.plan, { nonce, intents: c.intents! }), query: context.query }, budget },
+					c.linkId
+				).then(r => {
+					if (c.depth === active.depth) {	// Only affect timings if in-phase
+						this.captureTiming(t2, r.stats, timings, extremes,
+							() => void this.state.reportTimingViolation(context.query, c.linkId),	// Fire and forget
+						)
+					}
+					return r;
+				})
+			)]));
 
 		// Process the step (query sub-nodes)
 		const requests = { ...newRequests, ...Object.fromEntries(outstanding.map(c => [c.linkId, c.request!])) };

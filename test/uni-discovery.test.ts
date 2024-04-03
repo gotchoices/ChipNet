@@ -16,9 +16,9 @@ beforeEach(() => {
 			new TestNode('N4'),
 		],
 		[
-			new TestLink('L1', 'N1', 'N2', { code: 'L', version: 1, terms: { balance: 500 } }),
-			new TestLink('L2', 'N2', 'N3', { code: 'L', version: 1, terms: { balance: 500 } }),
-			new TestLink('L3', 'N2', 'N4', { code: 'L', version: 1, terms: { balance: 500 } }),
+			new TestLink('L1', 'N1', 'N2', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
+			new TestLink('L2', 'N2', 'N3', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
+			new TestLink('L3', 'N2', 'N4', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
 		]
 	);
 

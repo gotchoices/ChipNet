@@ -8,7 +8,7 @@
 * Intents
   * Don't preempt lift paths for comms paths
   * If comms path reaches target before lift, send out bi-directional probe
-  * Finish intentsSatisfied function
+  * Term satisfaction in intentsSatisfied function (make intents modular)
 * Design test and implement Economics
   * Policing - Quotas & metrics
 * Discovery of (not necessarily direct) peers with public addresses

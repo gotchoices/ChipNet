@@ -1,6 +1,6 @@
 import { Plan } from "../plan";
 import { UniQuery } from "./query";
-import { QueryContext, UniQueryState } from "./query-context";
+import { QueryContext } from "./query-context";
 
 /** Represents the state of a participant in unidirectional discovery. */
 export interface UniParticipantState {

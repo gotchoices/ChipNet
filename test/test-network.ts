@@ -41,7 +41,7 @@ export class TestNetwork {
 			const node2Index = Math.floor(Math.random() * nodeCount);
 			const node1 = nodes[node1Index];
 			const node2 = nodes[node2Index];
-			const link = new TestLink(`L${i}`, node1.name, node2.name, { code: 'L', version: 1, terms: { balance: Math.random() * 1000 - 500 } });
+			const link = new TestLink(`L${i}`, node1.name, node2.name, [{ code: 'L', version: 1, terms: { balance: Math.random() * 1000 - 500 } } as Intent]);
 			links.push(link);
 		}
 
@@ -67,20 +67,15 @@ export class TestNode {
 }
 
 export class TestLink {
-	name: string;
-	node1: string;
-	node2: string;
-	intent: Intent;
-
-	constructor(name: string, node1: string, node2: string, intent: Intent) {
-		this.name = name;
-		this.node1 = node1;
-		this.node2 = node2;
-		this.intent = intent;
+	constructor(
+		public name: string,
+		public node1: string,
+		public node2: string,
+		public intents: Intent[]) {
 	}
 
 	invertedLink() {
-		const link = new TestLink(this.name, this.node2, this.node1, { ...this.intent, terms: invertedTerms(this.intent.terms) });
+		const link = new TestLink(this.name, this.node2, this.node1, this.intents.map(intent => ({ ...intent, terms: invertedTerms(intent.terms) })));
 		return link;
 	}
 

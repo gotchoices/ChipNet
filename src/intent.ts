@@ -2,7 +2,7 @@ import { Plan } from "./plan";
 import { Terms } from "./types";
 
 export interface Intent {
-	/** Standardized codes for comms and lifts */
+	/** Standardized codes for comms, lifts, or referee */
 	code: "L" | "C";
 	version: number;
 	/** Terms data defining the desired transactional relationship with the target (must be JSON serializable) */
@@ -10,10 +10,6 @@ export interface Intent {
 }
 
 export function intentsSatisfied(intents: Intent[], plans: Plan[]) {
-	// TODO: check if all intents are satisfied - reuse with originator?
-	return Boolean(plans.length);
-}
-
-export function intentsQualify(linkIntents: Intent[], queryIntents: Intent[]) {
-
+	// TODO: check if the terms are satisfied
+	return intents.every(intent => plans.some(plan => plan.path.every(link => link.intents.some(li => li.code === intent.code))));
 }

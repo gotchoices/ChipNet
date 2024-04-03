@@ -8,7 +8,7 @@ import { UniParticipantOptions } from '../src/unidirectional/participant-options
 import { UniParticipantState } from '../src/unidirectional/participant-state';
 import { PrivateLink } from '../src/private-link';
 import { Address } from '../src/target';
-import { Intent, QueryRequest } from '../src';
+import { QueryRequest, Intent } from '../src';
 import { DummyAsymmetricalVault } from './dummy-asymmetrical-vault';
 import { DummyCryptoHash } from './dummy-cryptohash';
 
@@ -42,7 +42,7 @@ export class Scenario {
 			.reduce((c, node) => {
 				c[node.name] = new MemoryUniParticipantState(
 					this.cryptoHash,
-					network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intent } as PrivateLink)),
+					network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
 					network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
 					{ key: node.name }
 				);
@@ -66,7 +66,6 @@ export class Scenario {
 						} as Intent;
 					}
 				);
-				participantOptions.stepOptions.maxTimeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING
 				participantOptions.maxQueryAgeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING
 
 				const asymmetric = new DummyAsymmetricalVault(node.name);
@@ -111,7 +110,7 @@ export class Scenario {
 		const originatorOptions = new UniOriginatorOptions(this.makeQueryPeerFunc(originatorNode), true);
 		const originatorState = await MemoryUniOriginatorState.build(
 			originatorOptions,
-			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, intents: l.intent } as PrivateLink)),
+			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
 			new DummyAsymmetricalVault(originatorName),
 			this.cryptoHash,
 			{ address: target /* TODO: unsecret */ },
