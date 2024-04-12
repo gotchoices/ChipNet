@@ -1,11 +1,12 @@
 import { Plan } from "../plan";
+import { TraceFunc } from "../trace";
 import { UniQuery } from "./query";
 import { QueryContext } from "./query-context";
 
 /** Represents the state of a participant in unidirectional discovery. */
 export interface UniParticipantState {
 	/** Creates a query context for the given under-construction plan and query, including searching and enumerating candidates */
-	createContext(plan: Plan, query: UniQuery): Promise<QueryContext>
+	createContext(plan: Plan, query: UniQuery, linkId?: string): Promise<QueryContext>
 
 	/** Ensures that the given query is not already active
 	 * @throws If there is already an active query for the given session.
@@ -30,5 +31,7 @@ export interface UniParticipantState {
 
 	reportCycles(query: UniQuery, path: string[], collisions: string[]): Promise<void>;
 	reportTimingViolation(query: UniQuery, linkId: string): Promise<void>;
+
+	trace?: TraceFunc
 }
 

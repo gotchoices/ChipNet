@@ -38,7 +38,7 @@ export class UniParticipant {
 		await this.validateQuery(plan, query, linkId);
 		await this.state.validateNewQuery(query.sessionCode, linkId);	// Note: throws if there's already a query in progress
 
-		const context = await this.state.createContext(plan, query);	// Also searches and/or enumerates candidates
+		const context = await this.state.createContext(plan, query, linkId);	// Also searches and/or enumerates candidates
 
 		const plans = this.processAndFilterPlans(context.plans || [], query);
 
@@ -59,7 +59,7 @@ export class UniParticipant {
 		const stats = { earliest: duration, latest: duration, gross: duration, outstanding: 0, timings: [{ value: duration, variance: 0, count: 1 }] } as QueryStats;
 		return {
 			...(plans?.length ? { plans: await this.prependParticipant(plans) } : {}),
-			canReenter: !isSatisfied && newStateContext.activeQuery?.candidates.length,
+			canReenter: Boolean(!isSatisfied && newStateContext.activeQuery?.candidates.length),
 			stats
 		} as QueryResponse;
 	}
@@ -74,7 +74,7 @@ export class UniParticipant {
 			const firstCodes = Array.from(plan.path[0].intents.reduce((p, c) => p.add(c.code), new Set<string>()));
 			return firstCodes.filter(code => plan.path.every(link => link.intents.some(intent => intent.code === code)));
 		});
-		return matches
+		const allSupported = matches
 			.map((plan) => ({
 				...plan,
 				path: plan.path.map(link => ({ ...link, intents: link.intents.map(intent => this.options.negotiateIntent(intent, query.intents)).filter(Boolean) as Intent[] }))
@@ -85,11 +85,14 @@ export class UniParticipant {
 				path: plan.path.map(link => ({ ...link, intents: link.intents.filter(intent => supportedIntentCodes[i].includes(intent.code)) }))
 			}))
 			// Filter out plans that have no intents
-			.filter(plan => plan.path.every(p => p.intents.length))
+			.filter(plan => plan.path.every(p => p.intents.length));
+		const plans = allSupported
 			// Negotiate the plan (ie. vet and/or add external referees if needed)
 			.map(p => this.getNegotiatePlan()(p))
 			// Filter out any plans that were rejected by the negotiation
 			.filter(Boolean) as Plan[];
+		this.state.trace?.('plan filter', `matches=${matches.length} results=${plans.length}`);	// `matches=${matches.map(p => p.path.map(l => l.nonce).join(',')).join('; ')
+		return plans;
 	}
 
 	private async processAndFilterCandidates(candidates: QueryCandidate[], plan: Plan, query: UniQuery) {
@@ -112,7 +115,11 @@ export class UniParticipant {
 			void this.state.reportCycles(query, plan.path.map(p => p.nonce), [...cycles]);	// Fire and forget
 		}
 
-		return resolvedCandidates.filter(c => !cycles.has(c.nonce)).map(c => c.candidate);
+		const results = resolvedCandidates.filter(c => !cycles.has(c.nonce)).map(c => c.candidate);
+
+		this.state.trace?.('candidate filter', `candidates=${candidates.length} results=${results.length}`);	// `candidates=${candidates.map(c => c.linkId).join(', ')
+
+		return results;
 	}
 
 	/** Query has already passed through this node.  Search one level further. */
@@ -131,8 +138,9 @@ export class UniParticipant {
 		const completed = withRequests.filter(c => c.request!.isComplete);
 		const earlyPlans = this.plansFromCandidates(completed);
 		if (intentsSatisfied(context.query.intents, earlyPlans)) {
+			this.state.trace?.('early exit', `session=${reentrance.sessionCode} link=${linkId} plans=${earlyPlans.map(p => p.path.map(l => l.nonce).join(',')).join('; ')}`);
 			const stats = { earliest: Infinity, latest: 0, gross: 0, outstanding: 0, timings: [] } as QueryStats;	// no stats - out of phase
-			return await this.endReentrance(active, t2, stats, true, earlyPlans);
+			return await this.endReentrance(context, active, t2, stats, true, earlyPlans);
 		}
 
 		// Candidates that have never been tried, or have responded and we can reenter
@@ -164,30 +172,27 @@ export class UniParticipant {
 
 		// Process the step (query sub-nodes)
 		const requests = { ...newRequests, ...Object.fromEntries(outstanding.map(c => [c.linkId, c.request!])) };
-		await budgetedStep(budget - (Date.now() - t2), requests);
+		await budgetedStep(1000, requests);
+		//await budgetedStep(budget - (Date.now() - t2), requests);
 
 		const stats = { ...extremes, gross: 0, outstanding: Object.keys(requests).length, timings: Array.from(timings.ascending()) } as QueryStats;
-		const newContext = { ...active, candidates: active.candidates.map(c => ({ ...c, request: newRequests[c.linkId] ?? c.request, depth: newRequests[c.linkId] ? c.depth + 1 : c.depth })) } as ActiveQuery;
-		const plans = this.plansFromCandidates(newContext.candidates);
+		const newActive = { ...active, candidates: active.candidates.map(c => ({ ...c, request: newRequests[c.linkId] ?? c.request, depth: newRequests[c.linkId] ? c.depth + 1 : c.depth })) } as ActiveQuery;
+		const plans = this.plansFromCandidates(newActive.candidates);
 		const isSatisfied = intentsSatisfied(context.query.intents, plans);
-		return await this.endReentrance(active, t2, stats, isSatisfied, plans);
+		return await this.endReentrance(context, newActive, t2, stats, isSatisfied, plans);
 	}
 
-	private async endReentrance(context: ActiveQuery, t2: number, stats: QueryStats, isSatisfied: boolean, plans: Plan[]) {
+	private async endReentrance(context: QueryContext, active: ActiveQuery, t2: number, stats: QueryStats, isSatisfied: boolean, plans: Plan[]) {
+		const candidates = active.candidates.filter(({ request: r }) => !r || !r.isError || !r.isResponse || r.response!.canReenter); // Only keep candidates showing promise
 		const newState = isSatisfied
-			? { plans } as QueryContext
-			: {
-				activeQuery: {
-					...context,
-					candidates: context.candidates.filter(({ request: r }) => !r || !r.isError || !r.isResponse || r.response!.canReenter),	// Only keep candidates showing promise
-				} as ActiveQuery
-			} as QueryContext;
+			? { ...context, plans } as QueryContext
+			: { ...context, activeQuery: { ...active, depth: active.depth + 1, candidates } as ActiveQuery } as QueryContext;
 		await this.state.saveContext(newState);
 
 		stats.gross = Date.now() - t2;
 		return {
 			...(plans?.length ? { plans: await this.prependParticipant(plans) } : {}),
-			canReenter: !isSatisfied && newState.activeQuery?.candidates.length,	// Can reenter if there are still potential candidates
+			canReenter: Boolean(newState.activeQuery?.candidates.length),	// Can reenter if there are still potential candidates
 			stats
 		} as QueryResponse;
 	}
@@ -244,13 +249,9 @@ export class UniParticipant {
 
 	private async validateQueryState(ticket: Reentrance, context?: QueryContext, linkId?: string) {
 		// Verify that we haven't already given a concluding response for the query
-		if (context?.plans) {
-			throw new Error("Query already completed");
-		}
-
 		const active = context?.activeQuery;
 		if (!active) {
-			throw new Error(`Persisted context for reentrance (${ticket.sessionCode}) not found.`);
+			throw new Error(`Query already complete for session (${ticket.sessionCode}).`);
 		}
 		// validate that the depth isn't too deep
 		if (active.depth >= this.options.maxDepth) {	// Assume we're going one deeper than prior context

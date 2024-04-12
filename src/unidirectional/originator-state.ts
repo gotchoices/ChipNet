@@ -1,5 +1,7 @@
+import { TraceFunc } from "../trace";
 import { UniOriginatorOptions } from "./originator-options";
 import { UniQuery } from "./query";
+
 
 export interface UniOriginatorState {
 	/** The time budget growth-rate from historical experience */
@@ -8,4 +10,6 @@ export interface UniOriginatorState {
 	recordGrowth(growth: number): void;
 	readonly options: UniOriginatorOptions;
 	readonly query: UniQuery;
+
+	trace?: TraceFunc;
 }

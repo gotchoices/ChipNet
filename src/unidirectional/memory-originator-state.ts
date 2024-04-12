@@ -5,6 +5,7 @@ import { UniOriginatorState } from "./originator-state";
 import { PrivateLink } from "../private-link";
 import { PrivateTarget, PublicTarget } from "../target";
 import { AsymmetricVault, CryptoHash } from "chipcryptbase";
+import { TraceFunc } from "..";
 
 /** Simple memory based implementation of Uni state */
 export class MemoryUniOriginatorState implements UniOriginatorState {
@@ -15,6 +16,7 @@ export class MemoryUniOriginatorState implements UniOriginatorState {
 		public readonly peerLinks: PrivateLink[],
 		public readonly asymmetricVault: AsymmetricVault,	// Asymmetric crypto implementation
 		public readonly query: UniQuery,
+		public readonly trace?: TraceFunc,
 	) {
 	}
 

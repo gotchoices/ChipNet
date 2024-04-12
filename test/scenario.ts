@@ -44,7 +44,10 @@ export class Scenario {
 					this.cryptoHash,
 					network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
 					network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
-					{ key: node.name }
+					{ key: node.name },
+					(topic, message) => {
+						node.log = node.log || [`${topic}: ${message}`];
+					}
 				);
 				return c;
 			}, {} as Record<string, UniParticipantState>);
@@ -56,14 +59,20 @@ export class Scenario {
 					true,
 					(linkIntent, queryIntents) => {	// For now just filter to only lift intents and take the minimum of the requested and available balances
 						const liftIntent = queryIntents.find(intent => intent.code === 'L');
-						if (!liftIntent) {
+						if (!liftIntent || !linkIntent || linkIntent.code !== 'L') {
 							return undefined;
 						}
-						return { ...liftIntent,
-							terms: linkIntent.terms['balance'] >= liftIntent.terms['balance']
-								? { balance: Math.min(linkIntent.terms['balance'], liftIntent.terms['balance']) }
+						const linkBalance = linkIntent.terms['balance'];
+						const liftBalance = liftIntent.terms['balance'];
+						if (!linkBalance || !liftBalance) {
+							return undefined;
+						}
+						const intent = { ...liftIntent,
+							terms: Math.sign(linkBalance) === Math.sign(liftBalance) && Math.abs(linkBalance) >= Math.abs(liftBalance)
+								? { balance: Math.sign(liftBalance) * Math.min(Math.abs(linkBalance), Math.abs(liftBalance)) }
 								: undefined
 						} as Intent;
+						return intent.terms ? intent : undefined;
 					}
 				);
 				participantOptions.maxQueryAgeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING

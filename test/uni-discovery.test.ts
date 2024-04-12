@@ -14,11 +14,15 @@ beforeEach(() => {
 			new TestNode('N2'),
 			new TestNode('N3'),
 			new TestNode('N4'),
+			new TestNode('N5'),
+			new TestNode('N6'),
 		],
 		[
 			new TestLink('L1', 'N1', 'N2', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
 			new TestLink('L2', 'N2', 'N3', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
 			new TestLink('L3', 'N2', 'N4', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
+			new TestLink('L4', 'N4', 'N5', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
+			new TestLink('L5', 'N3', 'N6', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
 		]
 	);
 
@@ -28,14 +32,19 @@ describe('Simple discovery', () => {
 
 	test('should pass the test query through the originator', async () => {
 		const scenario = new Scenario(simpNet, instantTiming);
-		const originator = await scenario.getOriginator('N1', { key: 'N3' });
+		const originator = await scenario.getOriginator('N1', { key: 'N6' });
 
 		const result = await originator.discover();
 
 		console.log(JSON.stringify(result, null, 2)); // Pretty print the result
 		// Assert the result
 		expect(result.length).toBe(1);
-		expect(result[0].path.length).toBe(2);
+		expect(result[0].path.length).toBe(3);
+		expect(result[0].path.every(p => p.intents.length === 1)).toBe(true);
+		expect(result[0].path.every(p => p.intents[0].terms["balance"] === 100)).toBe(true);
+		expect(Object.keys(result[0].members).length).toBe(4);
+		expect(result[0].participants[0]).toBe('<N1>');
+		expect(result[0].participants[3]).toBe('N6');
 
 		// TODO: check results
 		//expect(result[0][0].nonce).toBe();
@@ -52,6 +61,11 @@ describe('Simple discovery', () => {
 
 		console.log(JSON.stringify(result, null, 2)); // Pretty print the result
 		console.log(JSON.stringify(scenario.stats));
+
+		// bigNet.nodes.filter(n => n.log).forEach(n => {
+		// 	console.log(`Node ${n.name}:`);
+		// 	n.log!.forEach(l => console.log(`  ${l}`));
+		// });
 	}, 100000);
 
 	/* TODO: tests for:

@@ -22,5 +22,6 @@ export * from './sequencing.js';
 export * from './serialize.js';
 export * from './target-secret.js';
 export * from './target.js';
+export * from './trace.js';
 export * from './types.js';
 

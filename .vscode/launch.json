@@ -5,67 +5,25 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Jest Debug",
 			"type": "node",
-			"request": "launch",
-			"runtimeArgs": [
-				"--inspect-brk",
-				"${workspaceRoot}/node_modules/jest/bin/jest.js",
-				"--runInBand",
-				"--watchAll=false",
-				"--detectOpenHandles",
-				"--no-cache"
-			],
-			"console": "integratedTerminal",
-			"internalConsoleOptions": "neverOpen",
-			"outFiles": [
-				"${workspaceRoot}/dist/**/*"
-			],
-			"sourceMaps": true,
-			"smartStep": true,
-			"skipFiles": [
-				"<node_internals>/**",
-				"node_modules/**"
-			],
-			"resolveSourceMapLocations": [
-				"${workspaceFolder}/**",
-				"!**/node_modules/**"
-			],
-			"cwd": "${workspaceRoot}",
-			"env": {
-				"NODE_ENV": "test",
-				"NODE_OPTIONS": "--experimental-vm-modules"
-			}
-		},
-		{
-			"name": "ChipNet Tests Debug",
-			"type": "node",
+			"name": "vscode-jest-tests.v2.ChipNet",
 			"request": "launch",
 			"args": [
-				"test",
-				"--",
 				"--runInBand",
 				"--watchAll=false",
 				"--testNamePattern",
 				"${jest.testNamePattern}",
 				"--runTestsByPath",
-				"--detectOpenHandles",
 				"${jest.testFile}"
 			],
-			"sourceMaps": true,
-			"smartStep": true,
-			"skipFiles": [
-				"<node_internals>/**",
-				"node_modules/**"
-			],
-			"resolveSourceMapLocations": [
-				"${workspaceFolder}/**",
-				"!**/node_modules/**"
-			],
-			"cwd": "${workspaceRoot}",
+			"cwd": "${workspaceFolder}",
 			"console": "integratedTerminal",
 			"internalConsoleOptions": "neverOpen",
-			"runtimeExecutable": "npm"
+			"disableOptimisticBPs": true,
+			"program": "${workspaceFolder}/node_modules/.bin/jest",
+			"windows": {
+				"program": "${workspaceFolder}/node_modules/jest/bin/jest"
+			}
 		}
 	]
 }

@@ -60,6 +60,7 @@ export class TestNetwork {
 
 export class TestNode {
 	name: string;
+	log?: string[];
 
 	constructor(name: string) {
 		this.name = name;

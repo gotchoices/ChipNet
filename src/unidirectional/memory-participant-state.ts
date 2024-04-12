@@ -7,7 +7,7 @@ import { Address, addressesMatch } from "../target";
 import { CryptoHash } from "chipcryptbase";
 import { intentsSatisfied } from "../intent";
 import { QueryCandidate } from "./active-query";
-import { QueryContext, QueryResponse } from "..";
+import { QueryContext, QueryResponse, TraceFunc } from "..";
 import { Pending } from "../pending";
 
 export interface PeerAddress {
@@ -31,6 +31,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 		public readonly peerLinks: PrivateLink[],
 		public readonly peerAddresses?: PeerAddress[],  	// List of peer addresses, and their link mappings
 		public readonly selfAddress?: Address,           // Identity for this node (should provide this or peerIdentities or both)
+		public readonly trace?: TraceFunc,
 	) {
 		peerLinks.forEach(l => this._peerLinksById[l.id] = l);
 		if (peerAddresses) {
@@ -46,18 +47,25 @@ export class MemoryUniParticipantState implements UniParticipantState {
 	async createContext(
 		plan: Plan,
 		query: UniQuery,
+		linkId?: string,
 	): Promise<QueryContext> {
 		const plans = await this.search(plan, query);
+		if (plans?.length && this.trace) {
+			this.trace('search', `node=${this.selfAddress} plans=${plans.map(p => p.path.map(l => l.nonce).join(',')).join('; ')}`);
+		}
 		if (plans?.length && intentsSatisfied(query.intents, plans)) {
+			this.trace?.('satisfied', `intents=${query.intents.map(i => i.code).join(', ')}`);
 			return { plan, query, plans };
 		} else {
 			const links = await this.getCandidates(plan, query);
 			const candidates = links.map(l => ({ linkId: l.id, intents: l.intents, depth: 1 } as QueryCandidate));
+			this.trace?.('candidates', `candidates=${candidates.map(c => c.linkId).join(', ')}`);
 			return {
 				plan,
 				query,
-				...(plans?.length ? { plans } : { }),
-				activeQuery: { depth: 1, candidates }
+				...(plans?.length ? { plans } : {}),
+				activeQuery: { depth: 1, candidates },
+				linkId,
 			};
 		}
 	}
@@ -75,7 +83,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 			? [{
 				path: [...plan.path, { nonce: await this.cryptoHash.makeNonce(link.id, query.sessionCode), intents: link.intents } as PublicLink],
 				participants: [peer!.address.key],
-				members: { [peer!.address.key]: { types: peer!.selfReferee ? [1,2] : [1] }, ...peer!.otherMembers }
+				members: { [peer!.address.key]: { types: peer!.selfReferee ? [1, 2] : [1] }, ...peer!.otherMembers }
 			}]
 			: undefined;
 	}
@@ -113,7 +121,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 		const sessionContext = this._contexts[context.query.sessionCode] ?? (this._contexts[context.query.sessionCode] = {});
 		sessionContext[linkId] = context;
 
-		context.activeQuery?.candidates.forEach(c => {
+		context.activeQuery?.candidates.filter(c => c.request).forEach(c => {
 			const request = c.request!;
 			if (!request.isComplete) {
 				this.logOutstanding(c.linkId, request);

@@ -64,34 +64,27 @@ export class UniOriginator {
 		// Compute the pareto percentile based on the histogram.
 		const cutoff = this.computePareto(stats);
 		// Compute the linear projection of the remaining time.
-		const tailTime = (cutoff - stats.earliest) * (1 - 1 / this.state.options.paretoQuantile);
-		return cutoff + tailTime;
+		const tailTime = (cutoff - stats.earliest) / this.state.options.paretoQuantile * (1 - this.state.options.paretoQuantile);
+		return cutoff + Math.max(0, tailTime);
 	}
 
 	/** Compute the pareto (80/20 rule) cutoff for the response times */
 	private computePareto(stats: QueryStats): number {
 		const sparstogram = new Sparstogram(this.state.options.timingStatBuckets, [this.state.options.paretoQuantile]);
 		sparstogram.append(...stats.timings);
-		if (sparstogram.count >= 4) {	// Some signal
+		if (sparstogram.centroidCount >= 4) {	// Some signal
 			if (stats.outstanding > 0) {	// Some missing on the tail - try to simulate missing tail
 				if (sparstogram.count > stats.outstanding) {	// Enough points to mirror the head to reproduce the tail
-					const tail = sparstogram.descending().next().value;
-					const quantile = sparstogram.valueAt(stats.outstanding);	// Point at the rank of the number outstanding
-					const head = Array.from(sparstogram.descending({ quantile }));
-					// Account for potentially being "part way" through the bucket (subtract from count)
-					if (head.length) {
-						head[0] = { ...head[0], count: head[0].count - quantile.offset };
-					}
-					sparstogram.append(...head.map(c => ({ value: tail.value + (quantile.value - c.value), count: c.count, variance: c.variance } as Centroid)));
+					mirrorHead(sparstogram, stats);
 					return sparstogram.markerAt(0).value;
 				} else { // Too many outstanding to recreate tail with head; project using growth rate
 					sparstogram.maxCentroids = 2;	// Compress to two centroids
 					const iter = sparstogram.ascending();
 					const tail = iter.next().value;
 					const next = iter.next().value;
-					const growthRate = (tail.centroid.count - next.centroid.count) / (tail.centroid.value - next.centroid.value);
+					const growthRate = (tail.count - next.count) / (tail.value - next.value);
 					if (growthRate > 0) {
-						const projectedTail = growthRate * (stats.outstanding - sparstogram.count) + tail.centroid.value;
+						const projectedTail = growthRate * (stats.outstanding - sparstogram.count) + tail.value;
 						return (projectedTail - stats.earliest) * this.state.options.paretoQuantile;
 					}
 				}
@@ -100,6 +93,17 @@ export class UniOriginator {
 			}
 		}
 		// If growth rate is negative, or we don't have enough data to extrapolate, just assume the actual time given
-		return stats.gross * this.state.options.paretoQuantile;
+		return stats.earliest + (stats.gross - stats.earliest) * this.state.options.paretoQuantile;
 	}
+}
+
+function mirrorHead(sparstogram: Sparstogram, stats: QueryStats) {
+	const tail = sparstogram.descending().next().value;
+	const quantile = sparstogram.valueAt(stats.outstanding); // Point at the rank of the number outstanding
+	const head = Array.from(sparstogram.descending({ quantile }));
+	// Account for potentially being "part way" through the bucket (subtract from count)
+	if (head.length) {
+		head[0] = { ...head[0], count: head[0].count - quantile.offset };
+	}
+	sparstogram.append(...head.map(c => ({ value: tail.value + (quantile.value - c.value), count: c.count, variance: c.variance } as Centroid)));
 }

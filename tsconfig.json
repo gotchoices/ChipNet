@@ -12,7 +12,7 @@
 		"types": [ "jest" ]
 	},
 	"include": [
-		"src/**/*.ts", "test"
+		"src/**/*.ts", "test/**/*.ts"
 	],
 	"exclude": [
 		"node_modules"
