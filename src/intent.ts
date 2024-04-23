@@ -9,7 +9,7 @@ export interface Intent {
 	terms: Terms;
 }
 
+/** @returns true if the given intents are fully satisfied (not including verification of terms) */
 export function intentsSatisfied(intents: Intent[], plans: Plan[]) {
-	// TODO: check if the terms are satisfied
 	return intents.every(intent => plans.some(plan => plan.path.every(link => link.intents.some(li => li.code === intent.code))));
 }

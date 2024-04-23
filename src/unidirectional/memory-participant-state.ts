@@ -2,18 +2,20 @@
 import { PrivateLink } from "../private-link";
 import { UniParticipantState } from "./participant-state";
 import { UniQuery } from "./query";
-import { Member, Plan, PublicLink } from "../plan";
+import { PlanMember, Plan, PublicLink } from "../plan";
 import { Address, addressesMatch } from "../target";
 import { CryptoHash } from "chipcryptbase";
 import { intentsSatisfied } from "../intent";
 import { QueryCandidate } from "./active-query";
-import { QueryContext, QueryResponse, TraceFunc } from "..";
 import { Pending } from "../pending";
+import { QueryResponse } from "../query-struct";
+import { TraceFunc } from "../trace";
+import { QueryContext } from "./query-context";
 
 export interface PeerAddress {
 	address: Address;
 	selfReferee: boolean;					// Referee preferences of the peer
-	otherMembers?: Record<string, Member>;
+	otherMembers?: Record<string, PlanMember>;
 	linkId: string;
 }
 
@@ -104,14 +106,14 @@ export class MemoryUniParticipantState implements UniParticipantState {
 	async validateNewQuery(sessionCode: string, linkId?: string): Promise<void> {
 		const context = this._contexts[sessionCode]?.[linkId ?? ''];
 		if (context) {
-			throw new Error(`Query '${sessionCode}' already in progress from link ${(linkId ? this.cryptoHash.makeNonce(linkId, sessionCode) : '')}`);
+			throw new Error(`Query '${sessionCode}' already in progress from link ${(linkId ? await this.cryptoHash.makeNonce(linkId, sessionCode) : '')}`);
 		}
 	}
 
 	async getContext(sessionCode: string, linkId?: string): Promise<QueryContext> {
 		const queryState = this._contexts[sessionCode]?.[linkId ?? ''];
 		if (!queryState) {
-			throw new Error(`Query '${sessionCode}'[${linkId}] from link ${(linkId ? this.cryptoHash.makeNonce(linkId, sessionCode) : '""')} not found`);
+			throw new Error(`Query '${sessionCode}'[${linkId}] from link ${(linkId ? await this.cryptoHash.makeNonce(linkId, sessionCode) : '""')} not found`);
 		}
 		return queryState;
 	}

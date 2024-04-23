@@ -9,8 +9,8 @@ const jestConfig: JestConfigWithTsJest = {
 	verbose: true,
 	testMatch: [
 		"<rootDir>/src/**/*.(test).{js,jsx,ts,tsx}",
-		"<rootDir>/src/**/?(*.)(spec|test).{js,jsx,ts,tsx}",
-		"<rootDir>/test/**/*.{js,jsx,ts,tsx}",
+		"<rootDir>/src/**/?(*.)(test).{js,jsx,ts,tsx}",
+		"<rootDir>/test/**/*.(test).{js,jsx,ts,tsx}",
 	],
 	//automock: true,
 	//testPathIgnorePatterns: ["<rootDir>/dist/", "<rootDir>/node_modules/"],

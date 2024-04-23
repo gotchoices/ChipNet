@@ -62,8 +62,8 @@ export class Scenario {
 						if (!liftIntent || !linkIntent || linkIntent.code !== 'L') {
 							return undefined;
 						}
-						const linkBalance = linkIntent.terms['balance'];
-						const liftBalance = liftIntent.terms['balance'];
+						const linkBalance = linkIntent.terms['balance'] as number | undefined;
+						const liftBalance = liftIntent.terms['balance'] as number | undefined;
 						if (!linkBalance || !liftBalance) {
 							return undefined;
 						}

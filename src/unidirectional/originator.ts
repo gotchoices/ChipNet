@@ -1,8 +1,9 @@
 import { UniOriginatorState } from "./originator-state";
 import { Plan } from "../plan";
-import { QueryRequest, QueryStats, UniParticipant } from "..";
 import { Centroid, Sparstogram } from "sparstogram";
 import { intentsSatisfied } from "../intent";
+import { UniParticipant } from ".";
+import { QueryRequest, QueryStats } from "../query-struct";
 
 /** Time budget for synchronized query cycles */
 interface Budget {

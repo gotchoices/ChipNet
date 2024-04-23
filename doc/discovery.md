@@ -109,14 +109,14 @@ A nonce, for the purpose of this library, is an anonymized (hashed and salted) l
 
 A node query (`QueryRequest`) is either first-time, or reentrant.  
 
-![depth1 query](figures/depth1-query.png)
+![depth1 query](discovery/figures/depth1-query.png)
 For first-time queries:
 * **Verify Session Code** is unique - history kept in state within expiration window
 * **Search made** locally based on the current nodes secret and public identities, as well as known peer identities
 * **State stored** for the query (whether found or not), so further queries can be rejected or resumed
 * **Candidates stored** to state if no matches are found for next depth if needed
 
-![depth2 query](figures/depth2-query.png)
+![depth2 query](discovery/figures/depth2-query.png)
 Reentrant queries are resumed by the session code in order to search another level deep:
 * **Session Code expiration** validated 
 * **Late-responding requests** inspected in case they already contain results
@@ -128,7 +128,7 @@ Reentrant queries are resumed by the session code in order to search another lev
 
 Note: Partly implemented
 
-Details can be found in [Time Sync via THIST](doc/time-sync)
+Details can be found in [Time Sync via THIST](discovery/time-sync.md)
 Timing is carefully orchestrated during the route discovery process. With each depth level represents a query sequence.  The querying participant waits for responses based on a combination of factors:
 * **All responses** - If all responses are in, this overrides the time budget, and a response is immediately made
 * **Time budget** - Each node is given a fixed budget by the requester, which includes the subtraction of the previously measured round-trip delay time.  When this elapses, regardless of number of respondents, the sequence is over and a responses is given

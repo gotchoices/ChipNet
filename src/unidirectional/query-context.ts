@@ -1,6 +1,6 @@
-import { UniQuery } from "..";
 import { Plan } from "../plan";
 import { ActiveQuery } from "./active-query";
+import { UniQuery } from "./query";
 
 /** Represents the current context of an active query.  Any produced plans and/or the reentrance information. */
 export interface QueryContext {
