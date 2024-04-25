@@ -116,7 +116,7 @@ export class Scenario {
 
 	async getOriginator(originatorName: string, target: Address): Promise<UniOriginator> {
 		const originatorNode = this.network.find(originatorName);
-		const originatorOptions = new UniOriginatorOptions(this.makeQueryPeerFunc(originatorNode), true);
+		const originatorOptions = new UniOriginatorOptions();
 		const originatorState = await MemoryUniOriginatorState.build(
 			originatorOptions,
 			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
