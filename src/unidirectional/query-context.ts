@@ -1,22 +1,12 @@
 import { Plan } from "../plan";
-import { Intent, UniQuery } from "./query";
+import { ActiveQuery } from "./active-query";
+import { UniQuery } from "./query";
 
-/** A candidate that is actively being queried on. */
-export interface QueryCandidate {
-	linkId: string;
-	/** The intent and related terms that are negotiated for the initial query of this candidate.  This OR ticket will be set. */
-	intent?: Intent;
-	/** Indicates reentry, if we've already received a response from this candidate.  This OR terms will be set. */
-	isReentry?: boolean,
-}
-
-/** The query context as of the last pass. */
+/** Represents the current context of an active query.  Any produced plans and/or the reentrance information. */
 export interface QueryContext {
 	query: UniQuery;
 	plan: Plan;
-	depth: number;
-	/** The candidates that are still under consideration (excluding requests that remain outstanding, which are tracked separately) */
-	candidates: QueryCandidate[];
-	time: number;
-	duration?: number;
+	linkId?: string;
+	plans?: Plan[];
+	activeQuery?: ActiveQuery
 }
