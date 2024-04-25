@@ -1,0 +1,65 @@
+@startuml
+left to right direction
+
+node "N1 (originator)" as N1 #LightBlue
+node N2 #LightBlue
+node N3 #LightBlue
+node N4 #CadetBlue
+node "N5 (terminus)" as N5 #LightBlue
+
+N2 -[#Gray]- N1
+N1 <-- N2 : L1
+N2 <-- N3 : L2
+N3 -[#Gray]- N2
+N3 <-- N4 : L3
+N4 <-[#Red]- N3
+N4 <-- N5 : L4
+N5 -[#Red]-> N4
+N1 -[#Gray]- N5
+
+note top of N1
+    |= Edge |= P |
+    | -L1 | <&check> |
+    | L1-L2 | - |
+    | L2-L3 | - |
+    | L3-L4 | - |
+    | L4- | - |
+end note
+
+note top of N2
+    |= Edge |= P |
+    | L1- | <&check> |
+    | -L1 | <&check> |
+    | L2-L3 | - |
+    | L3-L4 | - |
+    | L4- | - |
+end note
+
+note top of N3
+    |= Edge |= P |
+    | L1- | <&check> |
+    | L1-L2 | <&check> |
+    | -L2 | <&check> |
+    | L3-L4 | - |
+    | L4- | - |
+end note
+
+note top of N5
+    |= Edge |= P |
+    | L1- | <&check> |
+    | L1-L2 | - |
+    | L2-L3 | - |
+    | L3-L4 | - |
+    | -L4 | <&check> |
+end note
+
+note top of N4
+    |= Edge |= P |
+    | L1- | <&check> |
+    | L1-L2 | <&check> |
+    | L2-L3 | <&check> |
+    | -L3 | <&check> |
+    | -L4 | <&check> |
+end note
+
+@enduml

@@ -9,12 +9,21 @@ export class DummyCryptoHash implements CryptoHash {
 		private readonly id = 0,
 	) { }
 
-	isValid(code: string, now = Date.now()): boolean {
+	isValid(code: string): boolean {
 		const { id, exp } = JSON.parse(code);
-		return (id ?? 0) === this.id && exp > now;
+		return (id ?? 0) === this.id;
 	}
 
-	isValidBin(codeBin: Uint8Array, now?: number | undefined): boolean {
+	isValidBin(codeBin: Uint8Array): boolean {
+		throw new Error('Method not implemented.');
+	}
+
+	isCurrentlyValid(code: string, now = Date.now()): boolean {
+		const { id, exp } = JSON.parse(code);
+		return (id ?? 0) === this.id && exp >= now;
+	}
+
+	isCurrentlyValidBin(codeBin: Uint8Array): boolean {
 		throw new Error('Method not implemented.');
 	}
 

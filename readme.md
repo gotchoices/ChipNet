@@ -11,7 +11,8 @@ This library provides the following capabilities:
 * [Route discovery](doc/discovery.md) - performing a search for a given node identifier, either known to that node's peers, or only it itself
     * Unidirectional search - starting from a single node
     * Bidirectional search - starting from two nodes, or multiple edges of single node
-
+* [Clustered transactions](doc/cluster.md) - clustered transactions using star or ring voting consensus
+ 
 ### Development
 
 #### Contributing

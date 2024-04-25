@@ -1,7 +1,6 @@
 {
   "name": "chipnet",
-  "version": "0.1.1",
-  "target": "module",
+  "version": "0.1.2",
   "description": "A meta-protocol library for anonymous distributed search",
   "main": "./dist/index.js",
   "exports": {
@@ -32,22 +31,19 @@
   "author": "Nathan Allan",
   "license": "MIT",
   "devDependencies": {
-		"chipcrypt": "^0.1.5",
-
     "@types/jest": "^29.5.12",
-		"jest": "^29.7.0",
-    "ts-jest": "^29.1.2",
-
-		"@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^7.7.1",
+    "@typescript-eslint/parser": "^7.7.1",
+    "chipcrypt": "workspace:^",
     "eslint": "^8.57.0",
-
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
-
-		"typescript": "^5.3.3"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
-    "chipcode": "^0.1.7",
-    "chipcryptbase": "^0.1.14"
+    "chipcode": "workspace:^",
+    "chipcryptbase": "workspace:^",
+    "sparstogram": "^0.8.2"
   }
 }

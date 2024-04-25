@@ -1,7 +1,21 @@
 import { Plan } from "./plan";
-import { Terms } from "./types";
-import { Intent, UniQuery } from "./unidirectional/query";
+import { UniQuery } from "./unidirectional/query";
+import { Intent } from "./intent";
 import { Reentrance } from "./reentrance";
+import { Centroid } from "sparstogram";
+
+export interface QueryStats {
+	/** Time delay between receipt of query, and response given.  Note that this may be shorter than budget if all responses are in. */
+	gross: number;
+	/** Time delay between query receipt and first (this cycle) response */
+	earliest: number;
+	/** Time delay between query receipt and last (this cycle) response */
+	latest: number;
+	/** Sparstogram of net response times for all sub-queries */
+	timings: Centroid[];
+	/** The count of all still-outstanding sub-queries */
+	outstanding: number;
+}
 
 /**
  * Response from a participant.
@@ -13,6 +27,8 @@ export interface QueryResponse {
 	plans?: Plan[];
 	/** If set, further searches are possible */
 	canReenter?: boolean;
+	/** Timing statistics */
+	stats: QueryStats;
 }
 
 /**
@@ -27,6 +43,8 @@ export interface QueryRequest {
 		plan: Plan;
 	},
 	reentrance?: Reentrance,
+	/** Time budget (ms) for this query, already subtracting out estimated time to this node */
+	budget: number;
 }
 
 /**
