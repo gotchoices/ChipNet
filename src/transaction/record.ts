@@ -1,4 +1,4 @@
-import { Topology } from "./topology";
+import { Topology } from "../topology";
 
 export type SignatureType = 1 | -1 | 2 | -2;
 export const SignatureTypes = { promise: 1, noPromise: -1, commit: 2, noCommit: -2 } as const;

@@ -1,5 +1,5 @@
 import { Asymmetric, AsymmetricVault, CryptoHash, base64ToArray } from "chipcryptbase";
-import { MemberTypes } from "../plan";
+import { MemberTypes } from "../member";
 import { TrxParticipantState } from "./participant-state";
 import { Signature, SignatureTypes, TrxRecord } from "./record";
 import * as crypto from 'crypto';

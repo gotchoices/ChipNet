@@ -1,6 +1,7 @@
 import { Nonce } from "../types";
 import { TrxRecord } from "./record";
-import { Link, Member } from "./topology";
+import { Link } from "../topology";
+import { Member } from "../member";
 
 export interface TrxParticipantResource {
 	shouldPromise: (record: TrxRecord) => Promise<boolean>;

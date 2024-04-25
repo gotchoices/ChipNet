@@ -3,7 +3,8 @@ import { budgetedStep } from "../sequencing";
 import { UniParticipantState } from "./participant-state";
 import { QueryContext } from "./query-context";
 import { UniQuery } from "./query";
-import { PlanMember, Plan, appendPath, prependParticipant } from "../plan";
+import { Plan, appendPath, prependParticipant } from "../plan";
+import { Member } from "../member";
 import { ActiveQuery } from "./active-query";
 import { QueryCandidate } from "./active-query";
 import { Reentrance } from "../reentrance";
@@ -212,7 +213,7 @@ export class UniParticipant {
 
 	private async prependParticipant(plans: Plan[]) {
 		const key = await this.asymmetricVault.getPublicKeyAsString();
-		const participant: PlanMember = {
+		const participant: Member = {
 			types: this.options.selfReferee ? [1, 2] : [1],
 			secret: this.options.selfSecret,
 		};
@@ -293,8 +294,8 @@ export class UniParticipant {
 }
 
 /** @returns Deduplicated union of members */
-function concatMembers(members1: Record<string, PlanMember>, members2: Record<string, PlanMember>) {
-	const result: Record<string, PlanMember> = { ...members1 };
+function concatMembers(members1: Record<string, Member>, members2: Record<string, Member>) {
+	const result: Record<string, Member> = { ...members1 };
 	for (const key in members2) {
 		if (Object.prototype.hasOwnProperty.call(members1, key)) {
 			const member1 = members1[key];

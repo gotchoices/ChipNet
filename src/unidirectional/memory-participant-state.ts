@@ -2,7 +2,8 @@
 import { PrivateLink } from "../private-link";
 import { UniParticipantState } from "./participant-state";
 import { UniQuery } from "./query";
-import { PlanMember, Plan, PublicLink } from "../plan";
+import { Plan, PublicLink } from "../plan";
+import { Member } from "../member";
 import { Address, addressesMatch } from "../target";
 import { CryptoHash } from "chipcryptbase";
 import { intentsSatisfied } from "../intent";
@@ -15,7 +16,7 @@ import { QueryContext } from "./query-context";
 export interface PeerAddress {
 	address: Address;
 	selfReferee: boolean;					// Referee preferences of the peer
-	otherMembers?: Record<string, PlanMember>;
+	otherMembers?: Record<string, Member>;
 	linkId: string;
 }
 

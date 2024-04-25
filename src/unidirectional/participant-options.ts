@@ -1,5 +1,6 @@
 import { NegotiateIntentFunc, QueryPeerFunc } from "../query-struct";
-import { PlanMember, Plan } from "../plan";
+import { Plan } from "../plan";
+import { Member } from "../member";
 
 export class UniParticipantOptions {
 	maxQueryAgeMs = 10000; // No longer than this between subsequent queries
@@ -13,7 +14,7 @@ export class UniParticipantOptions {
 		public selfReferee: boolean,
 		public negotiateIntent: NegotiateIntentFunc,
 		public selfSecret?: string,
-		public otherMembers?: Record<string, PlanMember>
+		public otherMembers?: Record<string, Member>
 	) { }
 
 }
