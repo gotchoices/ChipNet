@@ -9,7 +9,7 @@
 		"strict": true,
 		"esModuleInterop": true,
 		"sourceMap": true,
-		"types": [ "jest" ]
+		"types": [ "jest", "node" ]
 	},
 	"include": [
 		"src/**/*.ts", "test/**/*.ts"
