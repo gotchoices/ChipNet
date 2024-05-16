@@ -11,7 +11,7 @@ The goal of this algorithm is to affect a transaction and have all nodes eventua
 Other terms:
 * **Payload** - the body of the transaction
 * **Topology** - a description of the nodes involved in the transaction and the relationships between them
-* **Record** - A data structure containing the transaction's payload, it's topology, and signature state
+* **Record** - A data structure containing the transaction's payload, its topology, and signature state
 
 ## Phases
 
@@ -50,9 +50,9 @@ During the commit phase, the referee(s) are given completely promised records an
 
 <p align="center"><img src="cluster/figures/commit-start.png" width="500" title="First commit step"></p>
 
-* The convergence node sends the fully promised record to all reachable participants and referees.  If the convergence node is also a referee, it first adds it's own commit signature.
+* The convergence node sends the fully promised record to all reachable participants and referees.  If the convergence node is also a referee, it first adds its own commit signature.
 
-* When a participant receives a record that in't fully consensed, it forwards it to any directly reachable participants and referees which may not already have the record.
+* When a participant receives a record that isn't fully consensed, it forwards it to any directly reachable participants and referees which may not already have the record.
 
 <p align="center"><img src="cluster/figures/commit-next.png" width="500" title="Next step in commit"></p>
 
