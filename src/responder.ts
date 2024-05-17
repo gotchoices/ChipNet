@@ -8,10 +8,22 @@ export class Responder {
 
 	/** A request has been received.  This is async so that errors can be handled by the caller. */
 	async request(message: ReceiverResponderMessage) {
-		const response = await this.processCallback(message.body);
+		let response: unknown;
+		try
+		{
+			response = await this.processCallback(message.body);
+		}
+		catch (error)
+		{
+			this.sendCallback({
+				messageId: message.messageId,
+				error,
+			});
+			return;
+		}
 		this.sendCallback({
 			messageId: message.messageId,
 			body: response,
-		});
+		} as ReceiverResponderMessage);
 	}
 }

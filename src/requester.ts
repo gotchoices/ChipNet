@@ -3,7 +3,8 @@ import { arrayToBase64 } from "chipcryptbase";
 import { ReceiverResponderMessage } from './receiver-responder-message';
 
 export class Requester {
-	private _pending = new Map<string, (value: unknown) => void>();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private _pending = new Map<string, { resolve: (value: unknown) => void, reject: (reason?: any) => void }>();
 
 	constructor(
 		private sendCallback: (message: ReceiverResponderMessage) => void,
@@ -15,9 +16,9 @@ export class Requester {
 			const message = {
 				messageId: arrayToBase64(rawId),
 				body
-			};
+			} as ReceiverResponderMessage;
 			this.sendCallback(message);
-			this._pending.set(message.messageId, resolve as (value: unknown) => void);
+			this._pending.set(message.messageId, { resolve: resolve as (value: unknown) => void, reject });
 			if (timeout) {
 				setTimeout(() => {
 					if (this._pending.has(message.messageId)) {
@@ -30,10 +31,14 @@ export class Requester {
 	}
 
 	response(message: ReceiverResponderMessage) {
-		const resolve = this._pending.get(message.messageId);
-		if (resolve) {
+		const handler = this._pending.get(message.messageId);
+		if (handler) {
 			this._pending.delete(message.messageId);
-			resolve(message.body);
+			if (Object.hasOwn(message, 'error')){
+				handler.reject(message.error);
+			} else {
+				handler.resolve(message.body);
+			}
 		}
 	}
 }

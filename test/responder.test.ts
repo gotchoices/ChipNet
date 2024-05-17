@@ -5,11 +5,11 @@ describe('Responder', () => {
 	it('should send a request and receive a response', async () => {
 		const requestBody = { data: 'Hello' };
 		const responseBody = { data: 'World' };
-		const requestMessage = {
+		const requestMessage: ReceiverResponderMessage = {
 			messageId: '12345',
 			body: requestBody,
 		};
-		const responseMessage = {
+		const responseMessage: ReceiverResponderMessage = {
 			messageId: '12345',
 			body: responseBody,
 		};

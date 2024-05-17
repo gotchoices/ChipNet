@@ -1,5 +1,6 @@
 
 export interface ReceiverResponderMessage {
 	messageId: string;
-	body: unknown;
+	body?: unknown;
+	error?: unknown;
 }

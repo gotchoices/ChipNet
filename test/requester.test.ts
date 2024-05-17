@@ -21,7 +21,7 @@ describe('Requester', () => {
 		requester.response({
 			messageId: sentMessage!.messageId,
 			body: responseBody,
-		});
+		} as ReceiverResponderMessage);
 		const result = await promise;
 		expect(result).toBe(responseBody);
 	});
