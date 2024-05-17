@@ -76,7 +76,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 	protected async search(plan: Plan, query: UniQuery): Promise<Plan[] | undefined> {
 		// Look at ourself first
 		if (this.selfAddress && addressesMatch(this.selfAddress, query.target.address)) {
-			return [{ path: [], participants: [], members: {} } as Plan];	// this node will added as a participant up-stack
+			return [{ path: [...plan.path], participants: [], members: {} } as Plan];	// this node will added as a participant up-stack
 		}
 
 		const peersForKey = this.getPeerIdentityByKey(query.target.address.key);
