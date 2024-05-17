@@ -1,3 +1,4 @@
+* If all candidates are in-progress, don't escalate the depth
 * Time synchronization between nodes (keep as offsets) - see [Time Sync](time-sync.md)
   * Return compressed timing histogram of sub-nodes.  Use to optimize up-stream timing of level.  See [Sparstogram](https://github.com/Digithought/Sparstogram).
   * Add process and comms timing to plans

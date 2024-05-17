@@ -31,7 +31,7 @@ export class UniOriginator {
 				if (!response.canReenter) {
 					break;
 				}
-				budget = this.nextBudget(this.validatedStats(response.stats), budget, duration);
+				budget = this.nextBudget(this.validatedStats(response.stats), budget, duration, i);
 				request = {
 					reentrance: { sessionCode: this.state.query.sessionCode },
 					budget: budget.net
@@ -44,6 +44,10 @@ export class UniOriginator {
 	}
 
 	private async initialTimeBudget() {
+		if (this.state.options.debugBudget) {
+			return { net: this.state.options.debugBudget, growth: this.state.options.debugBudget, overhead: 0 };
+		}
+
 		const growth = (await this.state.getLearnedGrowth()) ?? this.state.options.initialBudget;
 		return { net: growth, growth, overhead: 0 } as Budget;
 	}
@@ -53,7 +57,11 @@ export class UniOriginator {
 		return stats;
 	}
 
-	private nextBudget(stats: QueryStats, givenBudget: Budget, actualDuration: number) {
+	private nextBudget(stats: QueryStats, givenBudget: Budget, actualDuration: number, depth: number) {
+		if (this.state.options.debugBudget) {
+			return { net: this.state.options.debugBudget * depth, growth: this.state.options.debugBudget, overhead: 0 };
+		}
+
 		const ideal = this.estimateIdeal(stats);	//...if we had given a better budget we think it would have been this
 		const growth = givenBudget.growth + (ideal - givenBudget.net);
 		const net = ideal + growth;
