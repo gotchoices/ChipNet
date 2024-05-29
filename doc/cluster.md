@@ -125,6 +125,10 @@ Referee may intentionally or unintentionally "lie" and give out contradictory vo
 * a participant that was told to void, which is downstream of nodes which committed, may choose to remain in a voided state, but may elect to participate in a subsequent correcting lift
 * a participant that was told to commit, which is downstream of nodes which voided, may create a compensating reversal transaction with its peers
 
+### Network splits
+
+If parts of the network are severed, and therefore isolated from the other parts, and such "island" containing a minority of referees will have stuck resources until sufficient connectivity can be reestablished with the other island or islands, sufficient to reach a majority of referees.  Note that it is only necessary that *any* node from one island to reach *any* node from the other island in order regain the trend towards resolution.
+
 ### Potential problems during Promise
 
 One or more nodes exhibits a:
