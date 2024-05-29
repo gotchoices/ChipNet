@@ -1,3 +1,3 @@
-export class Originator {
-    
+export class BiOriginator {
+
 }

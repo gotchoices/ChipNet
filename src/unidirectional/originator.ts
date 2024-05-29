@@ -28,12 +28,12 @@ export class UniOriginator {
 			const response = await this.participant.query(request);
 			const duration = Date.now() - t1;
 			if (!response.plans || !intentsSatisfied(this.state.query.intents, response.plans)) {
-				if (!response.canReenter) {
+				if (!response.reentrance) {
 					break;
 				}
 				budget = this.nextBudget(this.validatedStats(response.stats), budget, duration, i);
 				request = {
-					reentrance: { sessionCode: this.state.query.sessionCode },
+					reentrance: response.reentrance,
 					budget: budget.net
 				};
 			} else {

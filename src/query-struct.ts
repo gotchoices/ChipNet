@@ -26,7 +26,7 @@ export interface QueryResponse {
 	/** Successful plans (if any) */
 	plans?: Plan[];
 	/** If set, further searches are possible */
-	canReenter?: boolean;
+	reentrance?: Reentrance;
 	/** Timing statistics */
 	stats: QueryStats;
 }

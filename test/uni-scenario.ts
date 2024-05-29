@@ -8,7 +8,7 @@ import { UniParticipantOptions } from '../src/unidirectional/participant-options
 import { UniParticipantState } from '../src/unidirectional/participant-state';
 import { PrivateLink } from '../src/private-link';
 import { Address } from '../src/target';
-import { QueryRequest, Intent } from '../src';
+import { QueryRequest, Intent, MemoryPeerState } from '../src';
 import { DummyAsymmetricalVault } from './dummy-asymmetrical-vault';
 import { DummyCryptoHash } from './dummy-cryptohash';
 
@@ -42,9 +42,6 @@ export class Scenario {
 			.reduce((c, node) => {
 				c[node.name] = new MemoryUniParticipantState(
 					this.cryptoHash,
-					network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
-					network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
-					{ key: node.name },
 					(topic, message) => {
 						node.log = node.log || [`${topic}: ${message}`];
 					}
@@ -77,13 +74,19 @@ export class Scenario {
 				);
 				participantOptions.maxQueryAgeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING
 
-				const asymmetric = new DummyAsymmetricalVault(node.name);
+				const asymmetricValue = new DummyAsymmetricalVault(node.name);
 
 				c[node.name] = new UniParticipant(
 					participantOptions,
 					this.participantStates[node.name],
-					asymmetric,
-					this.cryptoHash
+					asymmetricValue,
+					this.cryptoHash,
+					async () => new MemoryPeerState(
+						this.cryptoHash,
+						network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
+						network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
+						{ key: node.name },
+					)
 				);
 				return c;
 			}, {} as Record<string, UniParticipant>);

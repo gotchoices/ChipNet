@@ -75,7 +75,7 @@ export class TrxParticipant {
 	}
 
 	private async findOurMember(record: TrxRecord) {
-		const ourKey = await this.state.getOurKey(record.sessionCode);
+		const ourKey = this.state.publicKey;
 		return {
 			// Our member in the topology
 			member: record.topology.members[ourKey],
@@ -103,7 +103,7 @@ export class TrxParticipant {
 	}
 
 	private async reachablePeers(record: TrxRecord) {
-		const ourKey = await this.state.getOurKey(record.sessionCode);
+		const ourKey = this.state.publicKey;
 		// Members that aren't us, but have a physical address
 		return Object.entries(record.topology.members).filter(([k, m]) => k !== ourKey && hasPhysical(m.address)).map(([k]) => k)
 			// union - Members linked from our member
@@ -118,7 +118,7 @@ export class TrxParticipant {
 			&& await this.resource.shouldCommit(record);
 		const sigType = approved ? SignatureTypes.commit : SignatureTypes.noCommit;
 		const digest = getCommitDigest(record, [sigType.toString()]);
-		const ourKey = await this.state.getOurKey(record.sessionCode);
+		const ourKey = this.state.publicKey;
 		const modified = {
 			...record,
 			commits: [...record.commits, { type: sigType, key: ourKey, value: await this.vault.sign(digest) }]
@@ -132,7 +132,7 @@ export class TrxParticipant {
 			&& await this.resource.shouldPromise(record);
 		const sigType = approved ? SignatureTypes.promise : SignatureTypes.noPromise;
 		const digest = getPromiseDigest(record, [sigType.toString()]);
-		const ourKey = await this.state.getOurKey(record.sessionCode);
+		const ourKey = this.state.publicKey;
 		const modified = {
 			...record,
 			promises: [...record.promises, { type: sigType, key: ourKey, value: await this.vault.sign(digest) }]
@@ -192,7 +192,7 @@ export class TrxParticipant {
 		}
 
 		// Is our promise needed?
-		const ourKey = await this.state.getOurKey(record.sessionCode);
+		const ourKey = this.state.publicKey;
 		if (participants.includes(ourKey) && !record.promises.some(p => p.key === ourKey)) {
 			return RecordState.ourPromiseNeeded;
 		}
