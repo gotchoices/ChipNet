@@ -4,7 +4,7 @@
 */
 
 import { Intent } from "./intent";
-import { Member, MemberTypes } from "./member";
+import { MemberDetail, MemberTypes } from "./member";
 
 export interface PublicLink {
 	nonce: string;
@@ -14,7 +14,7 @@ export interface PublicLink {
 export interface Plan {
 	path: PublicLink[];	// Anonymized links
 	participants: string[];	// Node members in path - should have one more entry than path
-	members: Record<string, Member>;	// All members (participants, referees, and relays)
+	members: Record<string, MemberDetail>;	// All members (participants, referees, and relays)
 }
 
 /** @returns new plan with the given link added to the path */
@@ -23,7 +23,7 @@ export function appendPath(plan: Plan, link: PublicLink): Plan {
 }
 
 /** @returns new plan with the given participant prepended */
-export function prependParticipant(plan: Plan, name: string, member: Member): Plan {
+export function prependParticipant(plan: Plan, name: string, member: MemberDetail): Plan {
 	if (!member.types.includes(MemberTypes.participant)) {
 		throw new Error(`Member ${name} must be a participant`);
 	}

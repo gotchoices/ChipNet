@@ -1,9 +1,11 @@
 import { UniOriginatorState } from "./originator-state";
-import { Plan } from "../plan";
 import { Centroid, Sparstogram } from "sparstogram";
-import { intentsSatisfied } from "../intent";
+import { Intent, intentsSatisfied } from "../intent";
 import { UniParticipant } from ".";
 import { QueryRequest, QueryStats } from "../query-struct";
+import { PrivateTarget, PublicTarget } from "..";
+import { AsymmetricVault, CryptoHash } from "chipcryptbase";
+import { DiscoveryResult } from "./discovery-result";
 
 /** Time budget for synchronized query cycles */
 interface Budget {
@@ -13,21 +15,25 @@ interface Budget {
 }
 
 export class UniOriginator {
-
 	constructor(
-		private state: UniOriginatorState,
-		private participant: UniParticipant,
-	) {
-	}
+		private readonly state: UniOriginatorState,
+		private readonly participant: UniParticipant,
+		private readonly cryptoHash: CryptoHash,
+		private readonly asymmetricVault: AsymmetricVault,
+	) { }
 
-	async discover(): Promise<Plan[]> {
+	async discover(target: PrivateTarget, intents: Intent[]): Promise<DiscoveryResult> {
+		const sessionCode = await this.cryptoHash.generate();
+		const secret = target.unsecret ? await this.asymmetricVault.encrypt(JSON.stringify(target.unsecret)) : undefined;
+		const publicTarget = { address: target.address, secret } as PublicTarget;
+		const query = { target: publicTarget, sessionCode, intents };
 		let budget: Budget = await this.initialTimeBudget();
-		let request = { first: { plan: { path: [], participants: [], members: {} }, query: this.state.query }, budget: budget.net } as QueryRequest;
+		let request = { entrance: { plan: { path: [], participants: [], members: {} }, query }, budget: budget.net } as QueryRequest;
 		for (let i = 0; i <= this.state.options.maxDepth; i++) {
 			const t1 = Date.now();
 			const response = await this.participant.query(request);
 			const duration = Date.now() - t1;
-			if (!response.plans || !intentsSatisfied(this.state.query.intents, response.plans)) {
+			if (!response.plans || !intentsSatisfied(query.intents, response.plans)) {
 				if (!response.reentrance) {
 					break;
 				}
@@ -37,10 +43,10 @@ export class UniOriginator {
 					budget: budget.net
 				};
 			} else {
-				return response.plans!;
+				return { sessionCode, plans: response.plans! };
 			}
 		}
-		return [];
+		return { sessionCode, plans: [] };
 	}
 
 	private async initialTimeBudget() {

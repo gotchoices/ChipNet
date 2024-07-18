@@ -11,3 +11,4 @@ Translates to set of state-based instructions for each node
 * Have originator verify that target's signature matches target's PK as given by its address
 * Verify PK matches SK for specific path during promise
 * Identity verification "whispering" (hash of identity information shared with peer of peer using PK)
+* Ability to generate a report indicating a break-down of the transaction record's validation.  Use a rule system.

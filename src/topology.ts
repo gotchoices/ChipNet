@@ -1,5 +1,5 @@
 import { Intent } from "./intent";
-import { Member } from "./member";
+import { MemberDetail } from "./member";
 import { Key, Nonce } from "./types";
 
 export interface Link {
@@ -9,6 +9,6 @@ export interface Link {
 }
 
 export interface Topology {
-	members: Record<Key, Member>;	// Nodes by key
+	members: Record<Key, MemberDetail>;	// Nodes by key
 	links: Record<Nonce, Link>;	// Links by nonce
 }

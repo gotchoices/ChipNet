@@ -1,10 +1,10 @@
 import { Asymmetric, AsymmetricVault, CryptoHash, base64ToArray } from "chipcryptbase";
-import { MemberTypes } from "../member";
+import { Member, MemberTypes } from "../member";
 import { TrxParticipantState } from "./participant-state";
 import { Signature, SignatureTypes, TrxRecord } from "./record";
 import * as crypto from 'crypto';
 import { TrxParticipantOptions } from ".";
-import { TrxParticipantResource } from "./participant-resource";
+import { TrxLink, TrxParticipantResource } from "./participant-resource";
 
 enum RecordState {
 	promising,
@@ -36,26 +36,28 @@ export class TrxParticipant {
 			// TODO: if expired, still propagate (and sign as failed)
 			const merged = await this.validateAndMerge(prior, record);
 			const recordState = await this.getRecordState(merged);
+			const { member, links } = await this.findOurMember(merged);
 			switch (recordState) {
 				case RecordState.ourPromiseNeeded: {
-					const { member, links } = await this.findOurMember(merged);
 					await this.resource.promise(member, links, merged);
-					const modified = await this.addOurPromise(merged);
+					const modified = await this.addOurPromise(member, links, merged);
 					await this.state.setRecord(modified);
 					await this.pushModified(modified);
 				} break;
 				case RecordState.ourCommitNeeded: {
-					const modified = await this.addOurCommit(merged);
-					if (isConsensus(modified.commits.filter(c => c.type === SignatureTypes.commit).length, getReferees(modified).length)) {
-						await this.releaseResources(true, modified);
+					const modified = await this.addOurCommit(member, links, merged);
+					if (isConsensus(modified.commits.filter(c => c.type === SignatureTypes.commit).length, getReferees(modified).length)) {	// We completed the consensus
+						await this.resource.release(true, member, links, modified);
 					}
 					await this.state.setRecord(modified);
 					await this.pushModified(modified);
 				} break;
 				default: {
 					if (!recordsEqual(merged, prior)) {
-						if (await this.resource.isHeld(merged) && (recordState === RecordState.consensus || recordState === RecordState.rejected)) {
-							await this.releaseResources(recordState === RecordState.consensus, merged);
+						if ((recordState === RecordState.consensus || recordState === RecordState.rejected)) {
+							if (await this.resource.isHeld(member, links, merged)) {
+								await this.resource.release(recordState === RecordState.consensus, member, links, merged);
+							}
 						}
 						await this.state.setRecord(merged);
 						await this.pushModified(merged);
@@ -69,19 +71,14 @@ export class TrxParticipant {
 		}
 	}
 
-	private async releaseResources(isSuccess: boolean, record: TrxRecord) {
-		const { member, links } = await this.findOurMember(record);
-		await this.resource.release(isSuccess, member, links, record);
-	}
-
 	private async findOurMember(record: TrxRecord) {
 		const ourKey = this.state.publicKey;
 		return {
 			// Our member in the topology
-			member: record.topology.members[ourKey],
+			member: { key: ourKey, detail: record.topology.members[ourKey] } as Member,
 			// Incoming and outgoing links to our member
 			links: Object.entries(record.topology.links).filter(([, l]) => l.target === ourKey || l.source === ourKey)
-				.map(([nonce, link]) => ({ nonce, link }))
+				.map(([nonce, link]) => ({ nonce, link } as TrxLink))
 		};
 	}
 
@@ -112,10 +109,10 @@ export class TrxParticipant {
 			.concat(Object.entries(record.topology.links).filter(([, l]) => l.target === ourKey).map(([, l]) => l.source));
 	}
 
-	private async addOurCommit(record: TrxRecord) {
+	private async addOurCommit(member: Member, links: TrxLink[], record: TrxRecord) {
 		const approved = !this.cryptoHash.isExpired(record.transactionCode)
 			&& !this.cryptoHash.isExpired(record.sessionCode)
-			&& await this.resource.shouldCommit(record);
+			&& await this.resource.shouldCommit(member, links, record);
 		const sigType = approved ? SignatureTypes.commit : SignatureTypes.noCommit;
 		const digest = getCommitDigest(record, [sigType.toString()]);
 		const ourKey = this.state.publicKey;
@@ -126,10 +123,10 @@ export class TrxParticipant {
 		return modified;
 	}
 
-	private async addOurPromise(record: TrxRecord) {
+	private async addOurPromise(member: Member, links: TrxLink[], record: TrxRecord) {
 		const approved = !this.cryptoHash.isExpired(record.transactionCode)
 			&& !this.cryptoHash.isExpired(record.sessionCode)
-			&& await this.resource.shouldPromise(record);
+			&& await this.resource.shouldPromise(member, links, record);
 		const sigType = approved ? SignatureTypes.promise : SignatureTypes.noPromise;
 		const digest = getPromiseDigest(record, [sigType.toString()]);
 		const ourKey = this.state.publicKey;

@@ -1,11 +1,11 @@
 import { CryptoHash } from "chipcryptbase";
-import { Address, Member, Plan, PrivateLink, PublicLink, UniQuery, addressesMatch } from "..";
+import { Address, MemberDetail, Plan, PrivateLink, PublicLink, UniQuery, addressesMatch } from "..";
 import { PeerState } from "./peer-state";
 
 export interface PeerAddress {
 	address: Address;
 	selfReferee: boolean;					// Referee preferences of the peer
-	otherMembers?: Record<string, Member>;
+	otherMembers?: Record<string, MemberDetail>;
 	linkId: string;
 }
 
@@ -19,7 +19,7 @@ export class MemoryPeerState implements PeerState {
 		public readonly peerAddresses?: PeerAddress[],  	// List of peer addresses, and their link mappings
 		public readonly selfAddress?: Address,           // Identity for this node (should provide this or peerIdentities or both)
 	) {
-		peerLinks.forEach(l => this._peerLinksById[l.id] = l);
+		peerLinks.forEach(l => { this._peerLinksById[l.id] = l; });
 		if (peerAddresses) {
 			peerAddresses.forEach(i => {
 				if (!this._peerIdentitiesByKey[i.address.key]) {
@@ -33,7 +33,7 @@ export class MemoryPeerState implements PeerState {
 	async search(plan: Plan, query: UniQuery): Promise<Plan[] | undefined> {
 		// Look at ourself first
 		if (this.selfAddress && addressesMatch(this.selfAddress, query.target.address)) {
-			return [{ path: [...plan.path], participants: [], members: {} } as Plan];	// this node will added as a participant up-stack
+			return [{ sessionCode: query.sessionCode,  path: [...plan.path], participants: [], members: {} } as Plan];	// this node will added as a participant up-stack
 		}
 
 		const peersForKey = this.getPeerIdentityByKey(query.target.address.key);
@@ -44,7 +44,7 @@ export class MemoryPeerState implements PeerState {
 				path: [...plan.path, { nonce: await this.cryptoHash.makeNonce(link.id, query.sessionCode), intents: link.intents } as PublicLink],
 				participants: [peer!.address.key],
 				members: { [peer!.address.key]: { types: peer!.selfReferee ? [1, 2] : [1] }, ...peer!.otherMembers }
-			}]
+			} as Plan]
 			: undefined;
 	}
 
@@ -59,5 +59,10 @@ export class MemoryPeerState implements PeerState {
 
 	protected getPeerLinkById(linkId: string) {
 		return this._peerLinksById[linkId];
+	}
+
+	async getPeerLinksByNonce(sessionCode: string): Promise<Record<string, string>> {
+		const nonces = await Promise.all(this.peerLinks.map(l => this.cryptoHash.makeNonce(l.id, sessionCode)));
+		return Object.fromEntries(nonces.map((n, i) => [n, this.peerLinks[i].id]));
 	}
 }

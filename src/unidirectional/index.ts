@@ -12,3 +12,4 @@ export * from './peer-state.js';
 export * from './query-context.js';
 export * from './query.js';
 export * from './response.js';
+export * from './discovery-result.js';

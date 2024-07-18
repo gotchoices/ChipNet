@@ -32,9 +32,12 @@ describe('Simple discovery', () => {
 
 	test('should pass the test query through the originator', async () => {
 		const scenario = new Scenario(simpNet, instantTiming);
-		const originator = await scenario.getOriginator('N1', { key: 'N6' });
+		const originator = await scenario.getOriginator('N1');
 
-		const result = await originator.discover();
+		const { plans: result, sessionCode } = await originator.discover(
+			{ address: { key: 'N6' } /* TODO: unsecret */ },
+			[{ code: 'L', version: 1, terms: { balance: 100 } }]	// TODO: test other than lift intent
+		);
 
 		console.log(JSON.stringify(result, null, 2)); // Pretty print the result
 		// Assert the result
@@ -42,6 +45,7 @@ describe('Simple discovery', () => {
 		expect(result[0].path.length).toBe(3);
 		expect(result[0].path.every(p => p.intents.length === 1)).toBe(true);
 		expect(result[0].path.every(p => p.intents[0].terms["balance"] === 100)).toBe(true);
+		expect((await scenario.peerStates['N1'].getPeerLinksByNonce(sessionCode))[result[0].path[0].nonce]).toBe('L1');
 		expect(Object.keys(result[0].members).length).toBe(4);
 		expect(result[0].participants[0]).toBe('<N1>');
 		expect(result[0].participants[3]).toBe('N6');
@@ -53,13 +57,14 @@ describe('Simple discovery', () => {
 	test('stats on large networks', async () => {
 		const bigNet = TestNetwork.generate(10000, 70000);
 		const scenario = new Scenario(bigNet, instantTiming);
-		const originator = await scenario.getOriginator(
-			bigNet.nodes[0].name,
-			{ key: bigNet.nodes[bigNet.nodes.length - 1].name });
+		const originator = await scenario.getOriginator(bigNet.nodes[0].name);
 
-		const result = await originator.discover();
+		const { plans } = await originator.discover(
+			{ address: { key: bigNet.nodes[bigNet.nodes.length - 1].name } },
+			[{ code: 'L', version: 1, terms: { balance: 1 } }]
+		);
 
-		console.log(JSON.stringify(result, null, 2)); // Pretty print the result
+		console.log(JSON.stringify(plans, null, 2)); // Pretty print the result
 		console.log(JSON.stringify(scenario.stats));
 
 		// bigNet.nodes.filter(n => n.log).forEach(n => {

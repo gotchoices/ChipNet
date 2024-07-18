@@ -36,7 +36,7 @@ export interface QueryResponse {
  * will container either first, which contains the query and plan so far, or a reentrance session code to continue a previous query (not both)
  */
 export interface QueryRequest {
-	first?: {
+	entrance?: {
 		/** Original target and terms from originator */
 		query: UniQuery;
 		/** The transaction plan so far, including path of edge nonces (SessionCode anonymized links) encountered so far, and other terms */

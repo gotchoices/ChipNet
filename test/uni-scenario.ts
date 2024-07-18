@@ -7,8 +7,7 @@ import { UniOriginatorOptions } from '../src/unidirectional/originator-options';
 import { UniParticipantOptions } from '../src/unidirectional/participant-options';
 import { UniParticipantState } from '../src/unidirectional/participant-state';
 import { PrivateLink } from '../src/private-link';
-import { Address } from '../src/target';
-import { QueryRequest, Intent, MemoryPeerState } from '../src';
+import { QueryRequest, Intent, MemoryPeerState, PeerState } from '../src';
 import { DummyAsymmetricalVault } from './dummy-asymmetrical-vault';
 import { DummyCryptoHash } from './dummy-cryptohash';
 
@@ -22,6 +21,7 @@ export const instantTiming = { requestMs: 0, responseMs: 0 };
 export class Scenario {
 	public participantStates: Record<string, UniParticipantState>;
 	public participants: Record<string, UniParticipant>;
+	public peerStates: Record<string, PeerState> = {};
 	public cryptoHash = new DummyCryptoHash(60 * 60 * 1000);
 
 	public stats = {
@@ -74,19 +74,26 @@ export class Scenario {
 				);
 				participantOptions.maxQueryAgeMs = 60 * 60 * 1000;	// LONG TIMEOUT FOR DEBUGGING
 
-				const asymmetricValue = new DummyAsymmetricalVault(node.name);
+				const asymmetricVault = new DummyAsymmetricalVault(node.name);
 
 				c[node.name] = new UniParticipant(
 					participantOptions,
 					this.participantStates[node.name],
-					asymmetricValue,
+					asymmetricVault,
 					this.cryptoHash,
-					async () => new MemoryPeerState(
-						this.cryptoHash,
-						network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
-						network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
-						{ key: node.name },
-					)
+					async () => {
+						let peerState = this.peerStates[node.name];
+						if (!peerState) {
+							peerState = new MemoryPeerState(
+								this.cryptoHash,
+								network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
+								network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
+								{ key: node.name },
+							);
+							this.peerStates[node.name] = peerState;
+						}
+						return peerState;
+					}
 				);
 				return c;
 			}, {} as Record<string, UniParticipant>);
@@ -117,20 +124,17 @@ export class Scenario {
 		};
 	}
 
-	async getOriginator(originatorName: string, target: Address): Promise<UniOriginator> {
+	async getOriginator(originatorName: string): Promise<UniOriginator> {
 		const originatorNode = this.network.find(originatorName);
 		const originatorOptions = new UniOriginatorOptions();
 		const originatorState = await MemoryUniOriginatorState.build(
 			originatorOptions,
 			this.network.nodeLinks(originatorNode).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
-			new DummyAsymmetricalVault(originatorName),
-			this.cryptoHash,
-			{ address: target /* TODO: unsecret */ },
-			[{ code: 'L', version: 1, terms: { balance: 100 } }]	// TODO: test other than lift intent
+			/* TODO: trace */
 		);
 		const participant = this.participants[originatorName]
 
-		return new UniOriginator(originatorState, participant);
+		return new UniOriginator(originatorState, participant, this.cryptoHash, new DummyAsymmetricalVault(originatorName));
 	}
 }
 

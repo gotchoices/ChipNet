@@ -1,4 +1,4 @@
-import { TargetSecret } from "./target-secret";
+export type TargetSecret = Record<string, unknown>;
 
 // WARNING: If anything changes in these structure, be sure to update queryContextNameMap
 

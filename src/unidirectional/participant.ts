@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { AsymmetricVault, CryptoHash } from "chipcryptbase";
 import { Sparstogram } from "sparstogram";
-import { ActiveQuery, PeerState, QueryCandidate, QueryContext, UniParticipantOptions, UniParticipantState, UniQuery } from ".";
-import { Intent, Member, NegotiatePlanFunc, Plan, QueryRequest, QueryResponse, QueryStats, Reentrance, appendPath, budgetedStep, intentsSatisfied, prependParticipant } from "..";
+import { ActiveQuery, PeerState, QueryCandidate, QueryContext, DiscoveryResult, UniParticipantOptions, UniParticipantState, UniQuery } from ".";
+import { Intent, MemberDetail, NegotiatePlanFunc, Plan, QueryRequest, QueryResponse, QueryStats, Reentrance, appendPath, budgetedStep, intentsSatisfied, prependParticipant } from "..";
 import { Pending } from "../pending";
+import { Rule, RuleResponse, RuleSet, checkRules } from "../rule";
 
 export class UniParticipant {
 	constructor(
@@ -14,8 +16,8 @@ export class UniParticipant {
 	) { }
 
 	async query(request: QueryRequest, linkId?: string): Promise<QueryResponse> {
-		if (request.first) {
-			return await this.firstQuery(request.first.plan, request.first.query, request.budget, linkId);
+		if (request.entrance) {
+			return await this.enter(request.entrance.plan, request.entrance.query, request.budget, linkId);
 		} else if (request.reentrance) {
 			return await this.reenter(request.reentrance, request.budget, linkId);
 		} else {
@@ -24,10 +26,10 @@ export class UniParticipant {
 	}
 
 	/** First attempt (depth 1) search through this node */
-	private async firstQuery(plan: Plan, query: UniQuery, budget: number, linkId?: string): Promise<QueryResponse> {
+	private async enter(plan: Plan, query: UniQuery, budget: number, linkId?: string): Promise<QueryResponse> {
 		const t2 = Date.now();
 
-		await this.validateQuery(plan, query, linkId);
+		await this.queryRules.runAndCheck(plan, query, linkId);
 		const fullPath = plan.path.map(p => p.nonce);
 		await this.state.validateNewQuery(query.sessionCode, fullPath);	// Note: throws if there's already a query in progress
 
@@ -86,7 +88,6 @@ export class UniParticipant {
 			.map(p => this.getNegotiatePlan()(p))
 			// Filter out any plans that were rejected by the negotiation
 			.filter(Boolean) as Plan[];
-		this.state.trace?.('plan filter', `matches=${matches.length} results=${plans.length}`);	// `matches=${matches.map(p => p.path.map(l => l.nonce).join(',')).join('; ')
 		return plans;
 	}
 
@@ -156,7 +157,7 @@ export class UniParticipant {
 						reentrance: { ...reentrance, path: [...reentrance.path, nonce] },
 						budget: budget - (c.request.duration! - c.request.response!.stats.gross)
 					}
-					: { first: { plan: appendPath(context.plan, { nonce, intents: c.intents! }), query: context.query }, budget },
+					: { entrance: { plan: appendPath(context.plan, { nonce, intents: c.intents! }), query: context.query }, budget },
 					c.linkId
 				).then(r => {
 					if (c.depth === active.depth) {	// Only affect timings if in-phase
@@ -220,7 +221,7 @@ export class UniParticipant {
 				query,
 				...(plans?.length ? { plans } : {}),
 				activeQuery: { depth: 1, candidates },
-				linkId,
+				linkId
 			};
 		}
 	}
@@ -240,8 +241,8 @@ export class UniParticipant {
 
 	private async prependParticipant(plans: Plan[]) {
 		const key = await this.asymmetricVault.getPublicKeyAsString();
-		const participant: Member = {
-			types: this.options.selfReferee ? [1, 2] : [1],
+		const participant: MemberDetail = {
+			types: this.options.selfReferee ? ['P', 'R'] : ['P'],
 			secret: this.options.selfSecret,
 		};
 		return plans.map(p => prependParticipant(p, key, participant));
@@ -253,27 +254,38 @@ export class UniParticipant {
 		}
 	}
 
-	private async validateQuery(plan: Plan, query: UniQuery, linkId?: string) {
-		if (!this.cryptoHash.isValid(query.sessionCode)) {
-			throw new Error("Invalid or expired session code");
-		}
-		if (!linkId) {
-			// Validate that if the linkId isn't provided, the plan is also empty (this is the originator)
-			if (plan.path.length) {
-				throw new Error("Link ID required for non-empty plan");
-			}
-		} else {
-			// Validate that since a link is provided, there should be at least one entry in the path
-			if (!plan.path.length) {
-				throw new Error("Plan required for non-empty link ID");
-			}
-			// Validate that plan's ending nonce matches the linkId provided
-			const linkNonce = await this.cryptoHash.makeNonce(linkId, query.sessionCode);
-			if (plan.path.length && plan.path[plan.path.length - 1].nonce !== linkNonce) {
-				throw new Error("Link ID doesn't match plan");
-			}
-		}
-	}
+	readonly queryRules: RuleSet<(plan: Plan, query: UniQuery, linkId?: string) => Promise<RuleResponse>> = new RuleSet([
+		// Implement each "if" as a separate rule; incorporate "if (!link)..." as an and condition
+		new Rule('SessionCode', async (plan: Plan, query: UniQuery) =>
+			({
+				passed: this.cryptoHash.isValid(query.sessionCode),
+				message: `Invalid or expired session code (${query.sessionCode})`
+			} as RuleResponse)),
+		new Rule('SessionLongevity', async (plan: Plan, query: UniQuery) =>
+			({
+				passed: this.cryptoHash.getExpiration(query.sessionCode) >= Date.now() + this.options.minSessionMs,
+				message: `Session code too short-lived (${query.sessionCode})`
+			} as RuleResponse)),
+		new Rule('NewPlan', async (plan: Plan, query: UniQuery, linkId?: string) =>
+			({
+				passed: !plan.path.length,
+				message: `Plan must be empty for initial query`
+			} as RuleResponse),
+			{ condition: (plan, query, linkId) => !linkId }),
+		new Rule('NonEmptyPlan', async (plan: Plan, query: UniQuery, linkId?: string) =>
+			({
+				passed: Boolean(plan.path.length),
+				message: `Plan required for non-empty link ID`
+			} as RuleResponse),
+			{ condition: (plan, query, linkId) => Boolean(linkId) }),
+		new Rule('PlanMatch', async (plan: Plan, query: UniQuery, linkId?: string) => {
+			const linkNonce = await this.cryptoHash.makeNonce(linkId!, query.sessionCode);
+			return {
+				passed: plan.path.length && plan.path[plan.path.length - 1].nonce === linkNonce,
+				message: `Link ID doesn't match plan`
+			} as RuleResponse},
+			{ dependencies: ['NonEmptyPlan'] }),
+	]);
 
 	private async validateQueryState(ticket: Reentrance, context?: QueryContext, linkId?: string) {
 		// Verify that we haven't already given a concluding response for the query
@@ -299,11 +311,10 @@ export class UniParticipant {
 		}
 	}
 
-	private plansFromCandidates(candidates: QueryCandidate[]) {
+	private plansFromCandidates(candidates: QueryCandidate[]): Plan[] {
+		const negotiatePlan = this.getNegotiatePlan();
 		return candidates.filter(({ request: r }) => r?.isResponse && r!.response!.plans?.length)
-			.flatMap(({ request: r }) => r!.response!.plans!)
-			.map(p => this.getNegotiatePlan()(p))
-			.filter(p => p) as Plan[];
+			.flatMap(({ request: r }) => r!.response!.plans!.map(p => negotiatePlan(p)).filter(Boolean) as Plan[]) as Plan[];
 	}
 
 	private getNegotiatePlan(): NegotiatePlanFunc {
@@ -321,8 +332,8 @@ export class UniParticipant {
 }
 
 /** @returns Deduplicated union of members */
-function concatMembers(members1: Record<string, Member>, members2: Record<string, Member>) {
-	const result: Record<string, Member> = { ...members1 };
+function concatMembers(members1: Record<string, MemberDetail>, members2: Record<string, MemberDetail>) {
+	const result: Record<string, MemberDetail> = { ...members1 };
 	for (const key in members2) {
 		if (Object.prototype.hasOwnProperty.call(members1, key)) {
 			const member1 = members1[key];

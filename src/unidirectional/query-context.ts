@@ -8,5 +8,5 @@ export interface QueryContext {
 	plan: Plan;
 	linkId?: string;
 	plans?: Plan[];
-	activeQuery?: ActiveQuery
+	activeQuery?: ActiveQuery;
 }

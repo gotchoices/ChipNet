@@ -9,4 +9,7 @@ export interface PeerState {
 
 	/** Returns the list of candidate links for the given query */
 	getCandidates(plan: Plan, query: UniQuery): Promise<PrivateLink[]>;
+
+	/** Returns linkIds by the corresponding nonce */
+	getPeerLinksByNonce(sessionCode: string): Promise<Record<string, string>>
 }
