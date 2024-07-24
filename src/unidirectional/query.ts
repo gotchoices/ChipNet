@@ -1,5 +1,5 @@
 import { PublicTarget } from "../target";
-import { Intent } from "../intent";
+import { Intents } from "../intent";
 
 export interface UniQuery {
 	/** Target address */
@@ -7,5 +7,5 @@ export interface UniQuery {
 	/** Hash code used to anonymize node links */
 	sessionCode: string;
 	/** Intended purpose(s) (comms, lifts, etc.) and related terms */
-	intents: Intent[];
+	intents: Intents;
 }

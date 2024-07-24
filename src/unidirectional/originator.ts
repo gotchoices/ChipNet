@@ -1,6 +1,6 @@
 import { UniOriginatorState } from "./originator-state";
 import { Centroid, Sparstogram } from "sparstogram";
-import { Intent, intentsSatisfied } from "../intent";
+import { Intents, intentsSatisfied } from "../intent";
 import { UniParticipant } from ".";
 import { QueryRequest, QueryStats } from "../query-struct";
 import { PrivateTarget, PublicTarget } from "..";
@@ -22,7 +22,7 @@ export class UniOriginator {
 		private readonly asymmetricVault: AsymmetricVault,
 	) { }
 
-	async discover(target: PrivateTarget, intents: Intent[]): Promise<DiscoveryResult> {
+	async discover(target: PrivateTarget, intents: Intents): Promise<DiscoveryResult> {
 		const sessionCode = await this.cryptoHash.generate();
 		const secret = target.unsecret ? await this.asymmetricVault.encrypt(JSON.stringify(target.unsecret)) : undefined;
 		const publicTarget = { address: target.address, secret } as PublicTarget;

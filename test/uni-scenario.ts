@@ -55,16 +55,16 @@ export class Scenario {
 					this.makeQueryPeerFunc(node),
 					true,
 					(linkIntent, queryIntents) => {	// For now just filter to only lift intents and take the minimum of the requested and available balances
-						const liftIntent = queryIntents.find(intent => intent.code === 'L');
-						if (!liftIntent || !linkIntent || linkIntent.code !== 'L') {
+						const liftTerms = queryIntents['L'];
+						if (!liftTerms || !linkIntent || linkIntent.code !== 'L') {
 							return undefined;
 						}
 						const linkBalance = linkIntent.terms['balance'] as number | undefined;
-						const liftBalance = liftIntent.terms['balance'] as number | undefined;
+						const liftBalance = liftTerms['balance'] as number | undefined;
 						if (!linkBalance || !liftBalance) {
 							return undefined;
 						}
-						const intent = { ...liftIntent,
+						const intent = { code: 'L',
 							terms: Math.sign(linkBalance) === Math.sign(liftBalance) && Math.abs(linkBalance) >= Math.abs(liftBalance)
 								? { balance: Math.sign(liftBalance) * Math.min(Math.abs(linkBalance), Math.abs(liftBalance)) }
 								: undefined

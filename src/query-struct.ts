@@ -1,6 +1,6 @@
 import { Plan } from "./plan";
 import { UniQuery } from "./unidirectional/query";
-import { Intent } from "./intent";
+import { Intent, Intents } from "./intent";
 import { Reentrance } from "./reentrance";
 import { Centroid } from "sparstogram";
 
@@ -60,7 +60,7 @@ export type QueryPeerFunc = (request: QueryRequest, linkId: string) => Promise<Q
  * @param queryTerms The intents in the query
  * @returns The intent that matches, or undefined if there is no match
  */
-export type NegotiateIntentFunc = (linkIntent: Intent, queryIntents: Intent[]) => Intent | undefined;
+export type NegotiateIntentFunc = (linkIntent: Intent, queryIntents: Intents) => Intent | undefined;
 
 /**
  * A function that negotiates the referees and other aspect of the plan

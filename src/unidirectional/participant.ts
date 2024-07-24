@@ -2,7 +2,7 @@
 import { AsymmetricVault, CryptoHash } from "chipcryptbase";
 import { Sparstogram } from "sparstogram";
 import { ActiveQuery, PeerState, QueryCandidate, QueryContext, DiscoveryResult, UniParticipantOptions, UniParticipantState, UniQuery } from ".";
-import { Intent, MemberDetail, NegotiatePlanFunc, Plan, QueryRequest, QueryResponse, QueryStats, Reentrance, appendPath, budgetedStep, intentsSatisfied, prependParticipant } from "..";
+import { Intent, IntentType, Intents, MemberDetail, NegotiatePlanFunc, Plan, QueryRequest, QueryResponse, QueryStats, Reentrance, appendPath, budgetedStep, intentsSatisfied, prependParticipant, processIntents } from "..";
 import { Pending } from "../pending";
 import { Rule, RuleResponse, RuleSet, checkRules } from "../rule";
 
@@ -68,21 +68,31 @@ export class UniParticipant {
 		}
 		// For each match, compute which intent types are supported across the entire path
 		const supportedIntentCodes = matches.map(plan => {
-			const firstCodes = Array.from(plan.path[0].intents.reduce((p, c) => p.add(c.code), new Set<string>()));
-			return firstCodes.filter(code => plan.path.every(link => link.intents.some(intent => intent.code === code)));
+			const firstCodes = Object.keys(plan.path[0].intents);
+			return firstCodes.filter(code => plan.path.every(link => Object.prototype.hasOwnProperty.call(link.intents, code)));
 		});
 		const allSupported = matches
 			.map((plan) => ({
 				...plan,
-				path: plan.path.map(link => ({ ...link, intents: link.intents.map(intent => this.options.negotiateIntent(intent, query.intents)).filter(Boolean) as Intent[] }))
+				path: plan.path.map(link => ({
+					...link,
+					intents: processIntents(link.intents, intents =>
+						intents.map(intent => this.options.negotiateIntent(intent, query.intents))
+							.filter(Boolean) as Intent[])
+				}))
 			}))
 			// Filter any intents from plans that aren't supported by all links in the path
 			.map((plan, i) => ({
 				...plan,
-				path: plan.path.map(link => ({ ...link, intents: link.intents.filter(intent => supportedIntentCodes[i].includes(intent.code)) }))
+				path: plan.path.map(link => ({
+					...link,
+					intents: processIntents(link.intents, intents =>
+						intents.filter(intent => supportedIntentCodes[i].includes(intent.code)))
+				}))
 			}))
 			// Filter out plans that have no intents
-			.filter(plan => plan.path.every(p => p.intents.length));
+			.filter(plan => plan.path.every(p => Object.keys(p.intents).length));
+
 		const plans = allSupported
 			// Negotiate the plan (ie. vet and/or add external referees if needed)
 			.map(p => this.getNegotiatePlan()(p))
@@ -94,8 +104,12 @@ export class UniParticipant {
 	private async processAndFilterCandidates(candidates: QueryCandidate[], plan: Plan, query: UniQuery) {
 		// Determine any eligible intents and include nonces for all candidates
 		const resolvedCandidates = await Promise.all(candidates
-			.map(candidate => ({ ...candidate, intents: (candidate.intents ?? []).map(intent => this.options.negotiateIntent(intent, query.intents)).filter(Boolean) }))
-			.filter(({ intents }) => intents?.length)	// Filter out candidates with no eligible intents
+			.map(candidate => ({ ...candidate,
+				intents: processIntents(candidate.intents ?? {} as Intents,
+					intents => intents.map(intent => this.options.negotiateIntent(intent, query.intents))
+						.filter(Boolean) as Intent[])
+			}))
+			.filter(({ intents }) => intents && Object.keys(intents).length)	// Filter out candidates with no eligible intents
 			.map(async candidate => ({ candidate, nonce: await this.cryptoHash.makeNonce(candidate.linkId, query.sessionCode) }))
 		);
 
@@ -210,7 +224,7 @@ export class UniParticipant {
 			this.state.trace('search', `node=${peerState.selfAddress} plans=${plans.map(p => p.path.map(l => l.nonce).join(',')).join('; ')}`);
 		}
 		if (plans?.length && intentsSatisfied(query.intents, plans)) {
-			this.state.trace?.('satisfied', `intents=${query.intents.map(i => i.code).join(', ')}`);
+			this.state.trace?.('satisfied', `intents=${Object.keys(query.intents).join(', ')}`);
 			return { plan, query, plans };
 		} else {
 			const links = await peerState.getCandidates(plan, query);
@@ -257,33 +271,34 @@ export class UniParticipant {
 	readonly queryRules: RuleSet<(plan: Plan, query: UniQuery, linkId?: string) => Promise<RuleResponse>> = new RuleSet([
 		// Implement each "if" as a separate rule; incorporate "if (!link)..." as an and condition
 		new Rule('SessionCode', async (plan: Plan, query: UniQuery) =>
-			({
-				passed: this.cryptoHash.isValid(query.sessionCode),
-				message: `Invalid or expired session code (${query.sessionCode})`
-			} as RuleResponse)),
+		({
+			passed: this.cryptoHash.isValid(query.sessionCode),
+			message: `Invalid or expired session code (${query.sessionCode})`
+		} as RuleResponse)),
 		new Rule('SessionLongevity', async (plan: Plan, query: UniQuery) =>
-			({
-				passed: this.cryptoHash.getExpiration(query.sessionCode) >= Date.now() + this.options.minSessionMs,
-				message: `Session code too short-lived (${query.sessionCode})`
-			} as RuleResponse)),
+		({
+			passed: this.cryptoHash.getExpiration(query.sessionCode) >= Date.now() + this.options.minSessionMs,
+			message: `Session code too short-lived (${query.sessionCode})`
+		} as RuleResponse)),
 		new Rule('NewPlan', async (plan: Plan, query: UniQuery, linkId?: string) =>
-			({
-				passed: !plan.path.length,
-				message: `Plan must be empty for initial query`
-			} as RuleResponse),
+		({
+			passed: !plan.path.length,
+			message: `Plan must be empty for initial query`
+		} as RuleResponse),
 			{ condition: (plan, query, linkId) => !linkId }),
 		new Rule('NonEmptyPlan', async (plan: Plan, query: UniQuery, linkId?: string) =>
-			({
-				passed: Boolean(plan.path.length),
-				message: `Plan required for non-empty link ID`
-			} as RuleResponse),
+		({
+			passed: Boolean(plan.path.length),
+			message: `Plan required for non-empty link ID`
+		} as RuleResponse),
 			{ condition: (plan, query, linkId) => Boolean(linkId) }),
 		new Rule('PlanMatch', async (plan: Plan, query: UniQuery, linkId?: string) => {
 			const linkNonce = await this.cryptoHash.makeNonce(linkId!, query.sessionCode);
 			return {
 				passed: plan.path.length && plan.path[plan.path.length - 1].nonce === linkNonce,
 				message: `Link ID doesn't match plan`
-			} as RuleResponse},
+			} as RuleResponse
+		},
 			{ dependencies: ['NonEmptyPlan'] }),
 	]);
 

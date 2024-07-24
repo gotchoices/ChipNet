@@ -1,4 +1,4 @@
-import { Intent } from '../src';
+import { Intents, processIntents } from '../src';
 import { Terms } from '../src/types';
 
 export class TestNetwork {
@@ -41,7 +41,7 @@ export class TestNetwork {
 			const node2Index = Math.floor(Math.random() * nodeCount);
 			const node1 = nodes[node1Index];
 			const node2 = nodes[node2Index];
-			const link = new TestLink(`L${i}`, node1.name, node2.name, [{ code: 'L', version: 1, terms: { balance: Math.random() * 1000 - 500 } } as Intent]);
+			const link = new TestLink(`L${i}`, node1.name, node2.name, { 'L': { balance: Math.random() * 1000 - 500 } as Terms } as Intents);
 			links.push(link);
 		}
 
@@ -72,11 +72,12 @@ export class TestLink {
 		public name: string,
 		public node1: string,
 		public node2: string,
-		public intents: Intent[]) {
+		public intents: Intents) {
 	}
 
 	invertedLink() {
-		const link = new TestLink(this.name, this.node2, this.node1, this.intents.map(intent => ({ ...intent, terms: invertedTerms(intent.terms) })));
+		const link = new TestLink(this.name, this.node2, this.node1, processIntents(this.intents, intents =>
+			intents.map(intent => ({ ...intent, terms: invertedTerms(intent.terms) }))));
 		return link;
 	}
 

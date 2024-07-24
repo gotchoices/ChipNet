@@ -3,12 +3,12 @@
 	first by path, then back down by participant.
 */
 
-import { Intent } from "./intent";
+import { Intents } from "./intent";
 import { MemberDetail, MemberTypes } from "./member";
 
 export interface PublicLink {
 	nonce: string;
-	intents: Intent[];
+	intents: Intents;
 }
 
 export interface Plan {

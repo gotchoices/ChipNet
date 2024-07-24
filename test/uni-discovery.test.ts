@@ -1,4 +1,5 @@
 //import { describe, expect, test, beforeEach } from '@jest/globals';
+import { Intents } from '../src';
 import { TestNetwork, TestNode, TestLink } from './test-network';
 import { Scenario, instantTiming } from './uni-scenario';
 
@@ -18,11 +19,11 @@ beforeEach(() => {
 			new TestNode('N6'),
 		],
 		[
-			new TestLink('L1', 'N1', 'N2', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
-			new TestLink('L2', 'N2', 'N3', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
-			new TestLink('L3', 'N2', 'N4', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
-			new TestLink('L4', 'N4', 'N5', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
-			new TestLink('L5', 'N3', 'N6', [{ code: 'L', version: 1, terms: { balance: 500 } }]),
+			new TestLink('L1', 'N1', 'N2', { 'L': { balance: 500 } as unknown } as Intents),
+			new TestLink('L2', 'N2', 'N3', { 'L': { balance: 500 } as unknown } as Intents),
+			new TestLink('L3', 'N2', 'N4', { 'L': { balance: 500 } as unknown } as Intents),
+			new TestLink('L4', 'N4', 'N5', { 'L': { balance: 500 } as unknown } as Intents),
+			new TestLink('L5', 'N3', 'N6', { 'L': { balance: 500 } as unknown } as Intents),
 		]
 	);
 
@@ -36,15 +37,15 @@ describe('Simple discovery', () => {
 
 		const { plans: result, sessionCode } = await originator.discover(
 			{ address: { key: 'N6' } /* TODO: unsecret */ },
-			[{ code: 'L', version: 1, terms: { balance: 100 } }]	// TODO: test other than lift intent
+			{ 'L': { balance: 100 } as unknown } as Intents	// TODO: test other than lift intent
 		);
 
 		console.log(JSON.stringify(result, null, 2)); // Pretty print the result
 		// Assert the result
 		expect(result.length).toBe(1);
 		expect(result[0].path.length).toBe(3);
-		expect(result[0].path.every(p => p.intents.length === 1)).toBe(true);
-		expect(result[0].path.every(p => p.intents[0].terms["balance"] === 100)).toBe(true);
+		expect(result[0].path.every(p => Object.keys(p.intents).length === 1)).toBe(true);
+		expect(result[0].path.every(p => p.intents['L']["balance"] === 100)).toBe(true);
 		expect((await scenario.peerStates['N1'].getPeerLinksByNonce(sessionCode))[result[0].path[0].nonce]).toBe('L1');
 		expect(Object.keys(result[0].members).length).toBe(4);
 		expect(result[0].participants[0]).toBe('<N1>');
@@ -61,7 +62,7 @@ describe('Simple discovery', () => {
 
 		const { plans } = await originator.discover(
 			{ address: { key: bigNet.nodes[bigNet.nodes.length - 1].name } },
-			[{ code: 'L', version: 1, terms: { balance: 1 } }]
+			{ 'L': { balance: 1 } as unknown } as Intents
 		);
 
 		console.log(JSON.stringify(plans, null, 2)); // Pretty print the result
