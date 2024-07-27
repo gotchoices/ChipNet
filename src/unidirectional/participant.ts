@@ -2,7 +2,7 @@
 import { AsymmetricVault, CryptoHash } from "chipcryptbase";
 import { Sparstogram } from "sparstogram";
 import { ActiveQuery, PeerState, QueryCandidate, QueryContext, DiscoveryResult, UniParticipantOptions, UniParticipantState, UniQuery } from ".";
-import { Intent, IntentType, Intents, MemberDetail, NegotiatePlanFunc, Plan, QueryRequest, QueryResponse, QueryStats, Reentrance, appendPath, budgetedStep, intentsSatisfied, prependParticipant, processIntents } from "..";
+import { Intent, IntentSatisfiedFunc, IntentType, Intents, MemberDetail, NegotiatePlanFunc, Plan, QueryRequest, QueryResponse, QueryStats, Reentrance, appendPath, budgetedStep, intentsSatisfied, prependParticipant, processIntents } from "..";
 import { Pending } from "../pending";
 import { Rule, RuleResponse, RuleSet, checkRules } from "../rule";
 
@@ -13,6 +13,7 @@ export class UniParticipant {
 		public readonly asymmetricVault: AsymmetricVault,
 		public readonly cryptoHash: CryptoHash,
 		public getPeerState: () => Promise<PeerState>,
+		public readonly intentSatisfied: IntentSatisfiedFunc,
 	) { }
 
 	async query(request: QueryRequest, linkId?: string): Promise<QueryResponse> {
@@ -37,7 +38,7 @@ export class UniParticipant {
 
 		const plans = this.processAndFilterPlans(context.plans || [], query);
 
-		const isSatisfied = intentsSatisfied(query.intents, plans);
+		const isSatisfied = intentsSatisfied(query.intents, plans, this.intentSatisfied);
 		const newStateContext = isSatisfied
 			? { ...context, plans } as QueryContext
 			: {
@@ -147,7 +148,7 @@ export class UniParticipant {
 		const outstanding = withRequests.filter(c => !c.request!.isComplete);
 		const completed = withRequests.filter(c => c.request!.isComplete);
 		const earlyPlans = this.plansFromCandidates(completed);
-		if (intentsSatisfied(context.query.intents, earlyPlans)) {
+		if (intentsSatisfied(context.query.intents, earlyPlans, this.intentSatisfied)) {
 			this.state.trace?.('early exit', `session=${reentrance.sessionCode} link=${linkId} plans=${earlyPlans.map(p => p.path.map(l => l.nonce).join(',')).join('; ')}`);
 			const stats = { earliest: Infinity, latest: 0, gross: 0, outstanding: 0, timings: [] } as QueryStats;	// no stats - out of phase
 			return await this.endReentrance(context, active, t2, stats, true, earlyPlans, reentrance);
@@ -191,7 +192,7 @@ export class UniParticipant {
 		const stats = { ...extremes, gross: 0, outstanding: Object.keys(requests).length, timings: Array.from(timings.ascending()) } as QueryStats;
 		const newActive = { ...active, candidates: active.candidates.map(c => ({ ...c, request: newRequests[c.linkId] ?? c.request, depth: newRequests[c.linkId] ? c.depth + 1 : c.depth })) } as ActiveQuery;
 		const plans = this.plansFromCandidates(newActive.candidates);
-		const isSatisfied = intentsSatisfied(context.query.intents, plans);
+		const isSatisfied = intentsSatisfied(context.query.intents, plans, this.intentSatisfied);
 		return await this.endReentrance(context, newActive, t2, stats, isSatisfied, plans, reentrance);
 	}
 
@@ -223,7 +224,7 @@ export class UniParticipant {
 		if (plans?.length && this.state.trace) {
 			this.state.trace('search', `node=${peerState.selfAddress} plans=${plans.map(p => p.path.map(l => l.nonce).join(',')).join('; ')}`);
 		}
-		if (plans?.length && intentsSatisfied(query.intents, plans)) {
+		if (plans?.length && intentsSatisfied(query.intents, plans, this.intentSatisfied)) {
 			this.state.trace?.('satisfied', `intents=${Object.keys(query.intents).join(', ')}`);
 			return { plan, query, plans };
 		} else {
@@ -269,7 +270,6 @@ export class UniParticipant {
 	}
 
 	readonly queryRules: RuleSet<(plan: Plan, query: UniQuery, linkId?: string) => Promise<RuleResponse>> = new RuleSet([
-		// Implement each "if" as a separate rule; incorporate "if (!link)..." as an and condition
 		new Rule('SessionCode', async (plan: Plan, query: UniQuery) =>
 		({
 			passed: this.cryptoHash.isValid(query.sessionCode),

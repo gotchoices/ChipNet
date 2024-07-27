@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { PrivateLink } from "../private-link";
 import { UniParticipantState } from "./participant-state";
 import { UniQuery } from "./query";
-import { Plan, PublicLink } from "../plan";
-import { Member } from "../member";
-import { Address, addressesMatch } from "../target";
 import { CryptoHash } from "chipcryptbase";
-import { intentsSatisfied } from "../intent";
-import { QueryCandidate } from "./active-query";
 import { Pending } from "../pending";
 import { QueryResponse } from "../query-struct";
 import { TraceFunc } from "../trace";

@@ -33,7 +33,7 @@ export class UniOriginator {
 			const t1 = Date.now();
 			const response = await this.participant.query(request);
 			const duration = Date.now() - t1;
-			if (!response.plans || !intentsSatisfied(query.intents, response.plans)) {
+			if (!response.plans || !intentsSatisfied(query.intents, response.plans, this.participant.intentSatisfied)) {
 				if (!response.reentrance) {
 					break;
 				}

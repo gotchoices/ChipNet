@@ -7,7 +7,7 @@ import { UniOriginatorOptions } from '../src/unidirectional/originator-options';
 import { UniParticipantOptions } from '../src/unidirectional/participant-options';
 import { UniParticipantState } from '../src/unidirectional/participant-state';
 import { PrivateLink } from '../src/private-link';
-import { QueryRequest, Intent, MemoryPeerState, PeerState } from '../src';
+import { QueryRequest, Intent, MemoryPeerState, PeerState, Terms } from '../src';
 import { DummyAsymmetricalVault } from './dummy-asymmetrical-vault';
 import { DummyCryptoHash } from './dummy-cryptohash';
 
@@ -93,7 +93,9 @@ export class Scenario {
 							this.peerStates[node.name] = peerState;
 						}
 						return peerState;
-					}
+					},
+					(queryTerms: Terms, planTerms: Terms) =>
+						Object.entries(queryTerms).every(([key, value]) => value as number <= (planTerms[key] as number))
 				);
 				return c;
 			}, {} as Record<string, UniParticipant>);
