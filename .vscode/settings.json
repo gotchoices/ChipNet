@@ -1,8 +1,8 @@
 {
-    "plantuml.exportOutDir": "doc/figures",
-    "plantuml.diagramsRoot": "doc/figures",
+    "plantuml.exportOutDir": "doc",
+    "plantuml.diagramsRoot": "doc",
     "plantuml.exportFormat": "png",
-    "plantuml.exportIncludeFolderHeirarchy": false,
+    "plantuml.exportIncludeFolderHeirarchy": true,
     "plantuml.exportSubFolder": false,
     "cmake.configureOnOpen": false
 }

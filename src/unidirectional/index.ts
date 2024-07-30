@@ -1,3 +1,5 @@
+export * from './active-query.js';
+export * from './callback-peer-state.js';
 export * from './participant.js';
 export * from './participant-options.js';
 export * from './participant-state.js';
@@ -7,7 +9,7 @@ export * from './originator.js';
 export * from './originator-state.js';
 export * from './originator-options.js';
 export * from './memory-originator-state.js';
-export * from './active-query.js';
+export * from './peer-address.js';
 export * from './peer-state.js';
 export * from './query-context.js';
 export * from './query.js';

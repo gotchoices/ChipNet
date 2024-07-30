@@ -3,11 +3,15 @@ left to right direction
 
 node "N1 (originator)" as N1
 node N2
-node "N3 (target)" as N3
+node N3
 node N4
+node N5
+node "N6 (target)" as N6
 
 N1 --> N2 : L1
 N2 --> N3 : L2
 N2 --> N4 : L3
+N2 --> N5 : L4
+N3 --> N6 : L5
 
 @enduml

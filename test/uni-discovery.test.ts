@@ -7,7 +7,7 @@ let simpNet: TestNetwork;
 
 beforeEach(() => {
 	/**
-	 * @image ../doc/figures/test-network-1.png
+	 * @image ../doc/cluster/figures/test-network-1.png
 	 */
 	simpNet = new TestNetwork(
 		[
