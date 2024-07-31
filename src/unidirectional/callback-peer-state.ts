@@ -4,9 +4,6 @@ import { PeerState } from "./peer-state";
 import { PeerAddress } from "./peer-address";
 
 export class CallbackPeerState implements PeerState {
-	private _peerLinksById: Record<string, PrivateLink> = {};
-	private _peerIdentitiesByKey: Record<string, PeerAddress[]> = {};
-
 	constructor(
 		public readonly cryptoHash: CryptoHash,
 		public readonly getPeerLinks: (query?: UniQuery) => Promise<PrivateLink[]>,

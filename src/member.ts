@@ -1,4 +1,4 @@
-/** 1 = Participant, 2 = Referee.  Node: All nodes can act as relays. */
+/** 1 = Participant, 2 = Referee.  Note: All nodes can act as relays. */
 
 export type MemberType = 'P' | 'R';
 export const MemberTypes: Record<string, MemberType> = { participant: 'P', referee: 'R' } as const;
