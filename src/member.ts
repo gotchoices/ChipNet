@@ -1,15 +1,23 @@
-/** 1 = Participant, 2 = Referee.  Note: All nodes can act as relays. */
+import { Address } from "./address";
 
+/** Note: All nodes can act as relays. */
 export type MemberType = 'P' | 'R';
 export const MemberTypes: Record<string, MemberType> = { participant: 'P', referee: 'R' } as const;
 
-export interface MemberDetail {
-	address?: string; // Logical and possibly physical address of member
-	secret?: string; // Member managed encrypted path segment or other agent memory
-	types: MemberType[];
+export interface Member {
+	/** Optional physical multiaddress of member */
+	readonly physical?: string;
+	/** Member encrypted private data (auth token, etc.) */
+	readonly secret?: string;
+	readonly types: MemberType[];
+	/** If true, don't cache this member's address - it's likely ephemeral; Default: false */
+	readonly noCache?: boolean;
 }
 
-export interface Member {
-	key: string;
-	detail: MemberDetail;
+export interface IdentifiedMember extends Member {
+	readonly address: Address;
+}
+
+export interface DependentMember extends IdentifiedMember {
+	readonly dependsOn?: Address[];	// Other members this member nominates
 }

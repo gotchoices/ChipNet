@@ -28,7 +28,7 @@ export class UniOriginator {
 		const publicTarget = { address: target.address, secret } as PublicTarget;
 		const query = { target: publicTarget, sessionCode, intents };
 		let budget: Budget = await this.initialTimeBudget();
-		let request = { entrance: { plan: { path: [], participants: [], members: {} }, query }, budget: budget.net } as QueryRequest;
+		let request = { entrance: { plan: { path: [], members: [] }, query }, budget: budget.net } as QueryRequest;
 		for (let i = 0; i <= this.state.options.maxDepth; i++) {
 			const t1 = Date.now();
 			const response = await this.participant.query(request);

@@ -1,15 +1,8 @@
-import { UniOriginator } from '../src/unidirectional/originator';
-import { UniParticipant } from '../src/unidirectional/participant';
-import { TestNetwork, TestNode } from './test-network';
-import { MemoryUniOriginatorState } from '../src/unidirectional/memory-originator-state';
-import { MemoryUniParticipantState } from '../src/unidirectional/memory-participant-state';
-import { UniOriginatorOptions } from '../src/unidirectional/originator-options';
-import { UniParticipantOptions } from '../src/unidirectional/participant-options';
-import { UniParticipantState } from '../src/unidirectional/participant-state';
-import { PrivateLink } from '../src/private-link';
-import { QueryRequest, Intent, MemoryPeerState, PeerState, Terms } from '../src';
-import { DummyAsymmetricalVault } from './dummy-asymmetrical-vault';
-import { DummyCryptoHash } from './dummy-cryptohash';
+import { Intent, PrivateLink, Terms, QueryRequest } from "../src";
+import { UniParticipantState, UniParticipant, MemoryUniParticipantState, UniParticipantOptions, UniQuery, UniOriginator, UniOriginatorOptions, MemoryUniOriginatorState } from "../src/unidirectional";
+import { DummyAsymmetricalVault } from "./dummy-asymmetrical-vault";
+import { DummyCryptoHash } from "./dummy-cryptohash";
+import { TestNetwork, TestNode } from "./test-network";
 
 export interface Timing {
 	requestMs: number;
@@ -21,7 +14,6 @@ export const instantTiming = { requestMs: 0, responseMs: 0 };
 export class Scenario {
 	public participantStates: Record<string, UniParticipantState>;
 	public participants: Record<string, UniParticipant>;
-	public peerStates: Record<string, PeerState> = {};
 	public cryptoHash = new DummyCryptoHash(60 * 60 * 1000);
 
 	public stats = {
@@ -52,8 +44,6 @@ export class Scenario {
 		this.participants = network.nodes
 			.reduce((c, node) => {
 				const participantOptions = new UniParticipantOptions(
-					this.makeQueryPeerFunc(node),
-					true,
 					(linkIntent, queryIntents) => {	// For now just filter to only lift intents and take the minimum of the requested and available balances
 						const liftTerms = queryIntents['L'];
 						if (!liftTerms || !linkIntent || linkIntent.code !== 'L') {
@@ -81,21 +71,31 @@ export class Scenario {
 					this.participantStates[node.name],
 					asymmetricVault,
 					this.cryptoHash,
-					async () => {
-						let peerState = this.peerStates[node.name];
-						if (!peerState) {
-							peerState = new MemoryPeerState(
-								this.cryptoHash,
-								network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
-								network.nodeLinks(node).map(l => ({ address: { key: l.node2 }, selfReferee: true, linkId: l.name })),
-								{ key: node.name },
-							);
-							this.peerStates[node.name] = peerState;
-						}
-						return peerState;
+					async (query: UniQuery) => {	// findAddress
+						return {
+							selfMatch: {
+								member: {
+									address: { key: node.name },
+									types: ['P'],
+								}},
+							selfIsMatch: query.target.address.key === node.name,
+							peerMatch: network.nodeLinks(node)
+								.filter(l => l.node2 === query.target.address.key)
+								.map(l => ({
+									match: {
+										member: {
+											address: { key: l.node2 },
+											types: ['P'],
+										},
+									},
+									link: { id: l.name, intents: l.intents },
+								})),
+							candidates: network.nodeLinks(node).map(l => ({ id: l.name, intents: l.intents } as PrivateLink)),
+						};
 					},
-					(queryTerms: Terms, planTerms: Terms) =>
-						Object.entries(queryTerms).every(([key, value]) => value as number <= (planTerms[key] as number))
+					(queryTerms: Terms, planTerms: Terms) =>	// IntentsSatisfiedFunc
+						Object.entries(queryTerms).every(([key, value]) => value as number <= (planTerms[key] as number)),
+					this.makeQueryPeerFunc(node),
 				);
 				return c;
 			}, {} as Record<string, UniParticipant>);

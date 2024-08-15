@@ -1,10 +1,10 @@
 import { TrxParticipantState } from "./participant-state";
-import { AsymmetricVault } from "chipcryptbase";
 import { TrxRecord } from "./record";
+import { IdentifiedMember } from "..";
 
 export class MemoryTrxParticipantState implements TrxParticipantState {
 	constructor (
-		public readonly publicKey: string,
+		public readonly self: IdentifiedMember,
 	) {
 	}
 

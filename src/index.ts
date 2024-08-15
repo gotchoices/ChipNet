@@ -1,7 +1,4 @@
-export * from './bidirectional/index.js';
-export * from './transaction/index.js';
-export * from './unidirectional/index.js';
-
+export * from './address.js';
 export * from './intent.js';
 export * from './member.js';
 export * from './plan.js';

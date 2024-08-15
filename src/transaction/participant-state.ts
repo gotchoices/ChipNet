@@ -1,7 +1,8 @@
-import { TrxRecord } from "./record";
+import { TrxRecord } from ".";
+import { IdentifiedMember } from "..";
 
 export interface TrxParticipantState {
-	publicKey: string;
+	self: IdentifiedMember;
 
 	setRecord(record: TrxRecord): Promise<void>;
 	getRecord(transactionCode: string): Promise<TrxRecord>;

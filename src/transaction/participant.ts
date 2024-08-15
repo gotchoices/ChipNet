@@ -5,6 +5,7 @@ import { Signature, SignatureTypes, TrxRecord } from "./record";
 import * as crypto from 'crypto';
 import { TrxParticipantOptions } from ".";
 import { TrxLink, TrxParticipantResource } from "./participant-resource";
+import { Address, addressesMatch, findMember } from "..";
 
 enum RecordState {
 	promising,
@@ -71,20 +72,22 @@ export class TrxParticipant {
 		}
 	}
 
-	private async findOurMember(record: TrxRecord) {
-		const ourKey = this.state.publicKey;
+	private async findOurMember(record: TrxRecord): Promise<{ member: Member, links: TrxLink[] }> {
+		const ourAddress = this.state.self.address;
+		const ourMember = findMember(record.topology, ourAddress);
+		if (!ourMember) throw new Error(`Our member ${JSON.stringify(ourAddress)} not found in topology`);
 		return {
 			// Our member in the topology
-			member: { key: ourKey, detail: record.topology.members[ourKey] } as Member,
+			member: ourMember,
 			// Incoming and outgoing links to our member
-			links: Object.entries(record.topology.links).filter(([, l]) => l.target === ourKey || l.source === ourKey)
+			links: Object.entries(record.topology.links).filter(([, l]) => addressesMatch(l.target, ourAddress) || addressesMatch(l.source, ourAddress))
 				.map(([nonce, link]) => ({ nonce, link } as TrxLink))
 		};
 	}
 
 	private async pushModified(record: TrxRecord) {
 		const reachablePeers = await this.reachablePeers(record);
-		const updates = reachablePeers.map(async key => {
+		const updates = reachablePeers.map(async ({ key }) => {
 			const peerRecord = await this.state.getPeerRecord(key, record.transactionCode);
 			if (!peerRecord || !recordsEqual(peerRecord, record)) {
 				await this.pushPeerRecord(key, record);
@@ -99,14 +102,14 @@ export class TrxParticipant {
 		await this.state.setPeerRecord(key, record);
 	}
 
-	private async reachablePeers(record: TrxRecord) {
-		const ourKey = this.state.publicKey;
+	private async reachablePeers(record: TrxRecord): Promise<Address[]> {
+		const ourAddress = this.state.self.address;
 		// Members that aren't us, but have a physical address
-		return Object.entries(record.topology.members).filter(([k, m]) => k !== ourKey && hasPhysical(m.address)).map(([k]) => k)
+		return record.topology.members.filter(m => !addressesMatch(m.address, ourAddress) && hasPhysical(m.physical)).map(({ address }) => address)
 			// union - Members linked from our member
-			.concat(Object.entries(record.topology.links).filter(([, l]) => l.source === ourKey).map(([, l]) => l.target))
+			.concat(Object.entries(record.topology.links).filter(([, l]) => addressesMatch(l.source, ourAddress)).map(([, l]) => l.target))
 			// union - Members linked to our member
-			.concat(Object.entries(record.topology.links).filter(([, l]) => l.target === ourKey).map(([, l]) => l.source));
+			.concat(Object.entries(record.topology.links).filter(([, l]) => addressesMatch(l.target, ourAddress)).map(([, l]) => l.source));
 	}
 
 	private async addOurCommit(member: Member, links: TrxLink[], record: TrxRecord) {
@@ -115,10 +118,10 @@ export class TrxParticipant {
 			&& await this.resource.shouldCommit(member, links, record);
 		const sigType = approved ? SignatureTypes.commit : SignatureTypes.noCommit;
 		const digest = getCommitDigest(record, [sigType.toString()]);
-		const ourKey = this.state.publicKey;
+		const { key } = this.state.self.address;
 		const modified = {
 			...record,
-			commits: [...record.commits, { type: sigType, key: ourKey, value: await this.vault.sign(digest) }]
+			commits: [...record.commits, { type: sigType, key, value: await this.vault.sign(digest) }]
 		};
 		return modified;
 	}
@@ -129,10 +132,10 @@ export class TrxParticipant {
 			&& await this.resource.shouldPromise(member, links, record);
 		const sigType = approved ? SignatureTypes.promise : SignatureTypes.noPromise;
 		const digest = getPromiseDigest(record, [sigType.toString()]);
-		const ourKey = this.state.publicKey;
+		const { key } = this.state.self.address;
 		const modified = {
 			...record,
-			promises: [...record.promises, { type: sigType, key: ourKey, value: await this.vault.sign(digest) }]
+			promises: [...record.promises, { type: sigType, key, value: await this.vault.sign(digest) }]
 		};
 		return modified;
 	}
@@ -189,8 +192,8 @@ export class TrxParticipant {
 		}
 
 		// Is our promise needed?
-		const ourKey = this.state.publicKey;
-		if (participants.includes(ourKey) && !record.promises.some(p => p.key === ourKey)) {
+		const { key } = this.state.self.address;
+		if (participants.includes(key) && !record.promises.some(p => p.key === key)) {
 			return RecordState.ourPromiseNeeded;
 		}
 
@@ -221,7 +224,7 @@ export class TrxParticipant {
 		}
 
 		// Is our commit needed?
-		if (referees.includes(ourKey) && !record.commits.some(p => p.key === ourKey)) {
+		if (referees.includes(key) && !record.commits.some(p => p.key === key)) {
 			return RecordState.ourCommitNeeded;
 		}
 

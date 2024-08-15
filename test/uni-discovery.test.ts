@@ -46,10 +46,11 @@ describe('Simple discovery', () => {
 		expect(result[0].path.length).toBe(3);
 		expect(result[0].path.every(p => Object.keys(p.intents).length === 1)).toBe(true);
 		expect(result[0].path.every(p => p.intents['L']["balance"] === 100)).toBe(true);
-		expect((await scenario.peerStates['N1'].getPeerLinksByNonce(sessionCode))[result[0].path[0].nonce]).toBe('L1');
+		//expect((await scenario.peerStates['N1'].getPeerLinksByNonce(sessionCode))[result[0].path[0].nonce]).toBe('L1');
+		expect((await scenario.participantStates['N1'].getContext(sessionCode, [])).activeQuery?.candidates.find(c => c.nonce === result[0].path[0].nonce)?.linkId).toBe('L1');
 		expect(Object.keys(result[0].members).length).toBe(4);
-		expect(result[0].participants[0]).toBe('<N1>');
-		expect(result[0].participants[3]).toBe('N6');
+		expect(result[0].members[0].address.key).toBe('N1');
+		expect(result[0].members[3].address.key).toBe('N6');
 
 		// TODO: check results
 		//expect(result[0][0].nonce).toBe();
