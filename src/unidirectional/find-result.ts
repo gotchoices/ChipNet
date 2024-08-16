@@ -12,7 +12,7 @@ export interface Match {
 
 export interface FindResult {
 	/** The member details of the current participant. */
-	readonly selfMatch: Match;
+	readonly self: Match;
 
 	/** Whether the selfMember is a match for the query. */
 	readonly selfIsMatch: boolean;

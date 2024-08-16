@@ -73,7 +73,7 @@ export class Scenario {
 					this.cryptoHash,
 					async (query: UniQuery) => {	// findAddress
 						return {
-							selfMatch: {
+							self: {
 								member: {
 									address: { key: node.name },
 									types: ['P'],

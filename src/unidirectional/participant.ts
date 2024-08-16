@@ -163,7 +163,7 @@ await budgetedStep(1000, requests);
 
 		const rawPlans =
 			(findResult.selfIsMatch)
-				? [prependMatch({ sessionCode: query.sessionCode, path: [...plan.path], members: [] } as Plan, findResult.selfMatch)]
+				? [prependMatch({ sessionCode: query.sessionCode, path: [...plan.path], members: [] } as Plan, findResult.self)]
 				: (findResult.peerMatch?.length)
 					? findResult.peerMatch.map(m => prependMatch(
 							prependMatch(
@@ -173,14 +173,14 @@ await budgetedStep(1000, requests);
 									members: []
 								} as Plan,
 								m.match),
-							findResult.selfMatch))
+							findResult.self))
 					: [];
 		const plans = this.processAndFilterPlans(rawPlans, query);
 
 		if (this.state.trace) {
 			this.state.trace('findAddress', JSON.stringify(findResult));
 		}
-		return { ...context, plan, query, plans, self: findResult.selfMatch, linkIdsByNonce };
+		return { ...context, plan, query, plans, self: findResult.self, linkIdsByNonce };
 	}
 
 	/** negotiate intents and plans for any matches, then filter any with rejected intents or plans */
