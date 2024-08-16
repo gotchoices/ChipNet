@@ -47,7 +47,7 @@ describe('Simple discovery', () => {
 		expect(result[0].path.every(p => Object.keys(p.intents).length === 1)).toBe(true);
 		expect(result[0].path.every(p => p.intents['L']["balance"] === 100)).toBe(true);
 		//expect((await scenario.peerStates['N1'].getPeerLinksByNonce(sessionCode))[result[0].path[0].nonce]).toBe('L1');
-		expect((await scenario.participantStates['N1'].getContext(sessionCode, [])).activeQuery?.candidates.find(c => c.nonce === result[0].path[0].nonce)?.linkId).toBe('L1');
+		expect((await scenario.participantStates['N1'].getContext(sessionCode, [])).linkIdsByNonce[result[0].path[0].nonce]).toBe('L1');
 		expect(Object.keys(result[0].members).length).toBe(4);
 		expect(result[0].members[0].address.key).toBe('N1');
 		expect(result[0].members[3].address.key).toBe('N6');
@@ -56,7 +56,7 @@ describe('Simple discovery', () => {
 		//expect(result[0][0].nonce).toBe();
 	}, 10000);
 
-	test('stats on large networks', async () => {
+	test('search on large network', async () => {
 		const bigNet = TestNetwork.generate(10000, 70000);
 		const scenario = new Scenario(bigNet, instantTiming);
 		const originator = await scenario.getOriginator(bigNet.nodes[0].name);

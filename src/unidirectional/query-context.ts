@@ -10,4 +10,5 @@ export interface QueryContext {
 	linkId?: string;
 	plans?: Plan[];
 	activeQuery?: ActiveQuery;
+	linkIdsByNonce: Record<string, string>;
 }

@@ -134,10 +134,25 @@ await budgetedStep(1000, requests);
 	): Promise<QueryContext> {
 		const findResult = await this.findAddress(query);
 
+		// generate nonce/linkId mappings for all peers and candidates
+		const nonceLinkMap = (
+			findResult.candidates
+				? await Promise.all(
+					findResult.candidates.map(async c => [c.id, await this.cryptoHash.makeNonce(c.id, query.sessionCode)] as const)
+				) : []
+			).concat((
+				findResult.peerMatch
+					? await Promise.all(
+						findResult.peerMatch?.map(async m => [m.link.id, await this.cryptoHash.makeNonce(m.link.id, query.sessionCode)] as const)
+					) : []
+			));
+		const noncesByLinkId = Object.fromEntries(nonceLinkMap);
+		const linkIdsByNonce = Object.fromEntries(nonceLinkMap.map(([linkId, nonce]) => [nonce, linkId]));
+
 		const asyncCandidates =
 			findResult.candidates?.map(async c => ({
 				linkId: c.id,
-				nonce: await this.cryptoHash.makeNonce(c.id, query.sessionCode),
+				nonce: noncesByLinkId[c.id],
 				intents: c.intents,
 				depth: 1 } as QueryCandidate));
 		const rawCandidates = asyncCandidates ? await Promise.all(asyncCandidates) : undefined;
@@ -150,22 +165,22 @@ await budgetedStep(1000, requests);
 			(findResult.selfIsMatch)
 				? [prependMatch({ sessionCode: query.sessionCode, path: [...plan.path], members: [] } as Plan, findResult.selfMatch)]
 				: (findResult.peerMatch?.length)
-					? await Promise.all(findResult.peerMatch.map(async m => prependMatch(
+					? findResult.peerMatch.map(m => prependMatch(
 							prependMatch(
 								{
 									sessionCode: query.sessionCode,
-									path: [...plan.path, { nonce: await this.cryptoHash.makeNonce(m.link.id, query.sessionCode), intents: m.link.intents }],
+									path: [...plan.path, { nonce: noncesByLinkId[m.link.id], intents: m.link.intents }],
 									members: []
 								} as Plan,
 								m.match),
-							findResult.selfMatch)))
+							findResult.selfMatch))
 					: [];
 		const plans = this.processAndFilterPlans(rawPlans, query);
 
 		if (this.state.trace) {
 			this.state.trace('findAddress', JSON.stringify(findResult));
 		}
-		return { ...context, plan, query, plans, self: findResult.selfMatch, };
+		return { ...context, plan, query, plans, self: findResult.selfMatch, linkIdsByNonce };
 	}
 
 	/** negotiate intents and plans for any matches, then filter any with rejected intents or plans */
