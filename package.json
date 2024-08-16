@@ -1,10 +1,12 @@
 {
   "name": "chipnet",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A meta-protocol library for anonymous distributed search",
   "main": "./dist/index.js",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./unidirectional": "./dist/unidirectional/index.js",
+		"./transaction": "./dist/transaction/index.js"
   },
   "scripts": {
     "clean": "rm -rf dist/",
