@@ -55,9 +55,7 @@ export class TrxParticipant {
 				default: {
 					if (!recordsEqual(merged, prior)) {
 						if ((recordState === RecordState.consensus || recordState === RecordState.rejected)) {
-							if (await this.resource.isHeld(member, links, merged)) {
-								await this.resource.release(recordState === RecordState.consensus, member, links, merged);
-							}
+							await this.resource.release(recordState === RecordState.consensus, member, links, merged);
 						}
 						await this.state.setRecord(merged);
 						await this.pushModified(merged);
@@ -114,7 +112,7 @@ export class TrxParticipant {
 	private async addOurCommit(member: Member, links: TrxLink[], record: TrxRecord) {
 		const approved = !this.cryptoHash.isExpired(record.transactionCode)
 			&& !this.cryptoHash.isExpired(record.sessionCode)
-			&& await this.resource.shouldCommit(member, links, record);
+			&& this.resource.shouldCommit ? (await this.resource.shouldCommit(member, links, record)) : true;
 		const sigType = approved ? SignatureTypes.commit : SignatureTypes.noCommit;
 		const digest = getCommitDigest(record, [sigType.toString()]);
 		const { key } = this.state.self.address;
@@ -128,7 +126,7 @@ export class TrxParticipant {
 	private async addOurPromise(member: Member, links: TrxLink[], record: TrxRecord) {
 		const approved = !this.cryptoHash.isExpired(record.transactionCode)
 			&& !this.cryptoHash.isExpired(record.sessionCode)
-			&& await this.resource.shouldPromise(member, links, record);
+			&& this.resource.shouldPromise ? (await this.resource.shouldPromise(member, links, record)) : true;
 		const sigType = approved ? SignatureTypes.promise : SignatureTypes.noPromise;
 		const digest = getPromiseDigest(record, [sigType.toString()]);
 		const { key } = this.state.self.address;

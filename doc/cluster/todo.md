@@ -1,3 +1,4 @@
+* Use Address rather than key for peers
 * Simulation
   * Originator of transaction simulates sequence of reachability, with error margins of timing - A phase for promise, B phase for commit
   * Failure modes simulated
