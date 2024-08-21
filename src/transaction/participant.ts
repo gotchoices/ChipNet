@@ -3,7 +3,6 @@ import { Member, MemberTypes } from "../member";
 import { TrxParticipantState } from "./participant-state";
 import { Signature, SignatureTypes, TrxRecord } from "./record";
 import * as crypto from 'crypto';
-import { TrxParticipantOptions } from ".";
 import { TrxLink, TrxParticipantResource } from "./participant-resource";
 import { Address, addressesMatch, findMember } from "..";
 
@@ -18,12 +17,12 @@ enum RecordState {
 
 export class TrxParticipant {
 	constructor(
-		public state: TrxParticipantState,
-		public vault: AsymmetricVault,
-		public asymmetric: Asymmetric,
-		public cryptoHash: CryptoHash,
-		public options: TrxParticipantOptions,
-		public resource: TrxParticipantResource,
+		public readonly state: TrxParticipantState,
+		public readonly vault: AsymmetricVault,
+		public readonly asymmetric: Asymmetric,
+		public readonly cryptoHash: CryptoHash,
+		public readonly updatePeer: (key: string, record: TrxRecord) => Promise<void>,
+		public readonly resource: TrxParticipantResource,
 	) { }
 
 	public async update(record: TrxRecord, fromKey?: string): Promise<void> {
@@ -98,7 +97,7 @@ export class TrxParticipant {
 	}
 
 	private async pushPeerRecord(key: string, record: TrxRecord) {
-		await this.options.updatePeer(key, record);
+		await this.updatePeer(key, record);
 		await this.state.setPeerRecord(key, record);
 	}
 
