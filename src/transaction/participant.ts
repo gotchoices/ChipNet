@@ -1,7 +1,7 @@
 import { Asymmetric, AsymmetricVault, CryptoHash, base64ToArray } from "chipcryptbase";
-import { Member, MemberTypes } from "../member";
+import { DependentMember, Member, MemberTypes } from "../member";
 import { TrxParticipantState } from "./participant-state";
-import { Signature, SignatureTypes, TrxRecord } from "./record";
+import { recordsEqual, Signature, SignatureTypes, TrxRecord } from "./record";
 import * as crypto from 'crypto';
 import { TrxLink, TrxParticipantResource } from "./participant-resource";
 import { Address, addressesMatch, findMember } from "..";
@@ -21,13 +21,14 @@ export class TrxParticipant {
 		public readonly vault: AsymmetricVault,
 		public readonly asymmetric: Asymmetric,
 		public readonly cryptoHash: CryptoHash,
-		public readonly updatePeer: (key: string, record: TrxRecord) => Promise<void>,
+		public readonly updatePeer: (address: Address, record: TrxRecord) => Promise<void>,
 		public readonly resource: TrxParticipantResource,
 	) { }
 
-	public async update(record: TrxRecord, fromKey?: string): Promise<void> {
-		if (fromKey) {
-			await this.state.setPeerRecord(fromKey, record);
+	public async update(record: TrxRecord, fromAddress?: Address): Promise<void> {
+		if (fromAddress) {
+			// TODO: if this came from a peer that we just updated, we might be getting older information than what we just sent; assume the union or be conservative?
+			await this.state.setPeerRecord(fromAddress, record);
 		}
 
 		// Load the prior known state of the record from state
@@ -84,19 +85,19 @@ export class TrxParticipant {
 
 	private async pushModified(record: TrxRecord) {
 		const reachablePeers = await this.reachablePeers(record);
-		const updates = reachablePeers.map(async ({ key }) => {
-			const peerRecord = await this.state.getPeerRecord(key, record.transactionCode);
+		const updates = reachablePeers.map(async address => {
+			const peerRecord = await this.state.getPeerRecord(address, record.transactionCode);
 			if (!peerRecord || !recordsEqual(peerRecord, record)) {
-				await this.pushPeerRecord(key, record);
+				await this.pushPeerRecord(address, record);
 			}
 		});
 		await Promise.allSettled(updates);
 		// TODO: put into Pending objects to monitor and log
 	}
 
-	private async pushPeerRecord(key: string, record: TrxRecord) {
-		await this.updatePeer(key, record);
-		await this.state.setPeerRecord(key, record);
+	private async pushPeerRecord(address: Address, record: TrxRecord) {
+		await this.updatePeer(address, record);
+		await this.state.setPeerRecord(address, record);
 	}
 
 	private async reachablePeers(record: TrxRecord): Promise<Address[]> {
@@ -109,30 +110,30 @@ export class TrxParticipant {
 			.concat(Object.entries(record.topology.links).filter(([, l]) => addressesMatch(l.target, ourAddress)).map(([, l]) => l.source));
 	}
 
-	private async addOurCommit(member: Member, links: TrxLink[], record: TrxRecord) {
+	private async addOurCommit(member: Member, links: TrxLink[], record: TrxRecord): Promise<TrxRecord> {
 		const approved = !this.cryptoHash.isExpired(record.transactionCode)
 			&& !this.cryptoHash.isExpired(record.sessionCode)
 			&& this.resource.shouldCommit ? (await this.resource.shouldCommit(member, links, record)) : true;
 		const sigType = approved ? SignatureTypes.commit : SignatureTypes.noCommit;
 		const digest = getCommitDigest(record, [sigType.toString()]);
-		const { key } = this.state.self.address;
+		const address = this.state.self.address;
 		const modified = {
 			...record,
-			commits: [...record.commits, { type: sigType, key, value: await this.vault.sign(digest) }]
+			commits: [...record.commits, { type: sigType, address, value: await this.vault.sign(digest) }]
 		};
 		return modified;
 	}
 
-	private async addOurPromise(member: Member, links: TrxLink[], record: TrxRecord) {
+	private async addOurPromise(member: Member, links: TrxLink[], record: TrxRecord): Promise<TrxRecord> {
 		const approved = !this.cryptoHash.isExpired(record.transactionCode)
 			&& !this.cryptoHash.isExpired(record.sessionCode)
 			&& this.resource.shouldPromise ? (await this.resource.shouldPromise(member, links, record)) : true;
 		const sigType = approved ? SignatureTypes.promise : SignatureTypes.noPromise;
 		const digest = getPromiseDigest(record, [sigType.toString()]);
-		const { key } = this.state.self.address;
+		const address = this.state.self.address;
 		const modified = {
 			...record,
-			promises: [...record.promises, { type: sigType, key, value: await this.vault.sign(digest) }]
+			promises: [...record.promises, { type: sigType, address, value: await this.vault.sign(digest) }]
 		};
 		return modified;
 	}
@@ -173,13 +174,13 @@ export class TrxParticipant {
 	async getRecordState(record: TrxRecord): Promise<RecordState> {
 		const participants = getParticipants(record);
 		// No duplicate promise signatures should be present
-		if (record.promises.length !== new Set(record.promises.map(p => p.key)).size) throw new Error(`Duplicate promise signatures present`);
+		if (record.promises.length !== new Set(record.promises.map(p => JSON.stringify(p.address))).size) throw new Error(`Duplicate promise signatures present`);
 		// Any promise signatures should be for participants
-		if (record.promises.some(p => !participants.includes(p.key))) throw new Error(`Promise signature is not for a participant`);
+		if (record.promises.some(p => !participants.some(par => addressesMatch(par.address, p.address)))) throw new Error(`Promise signature is not for a participant`);
 		// Validate all present promise signatures
 		const promiseDigest = getPromiseDigest(record);
 		record.promises.forEach(p => {
-			if (!this.verifyDigest(p.key, promiseDigest, p.value)) throw new Error(`Promise signature for ${p.key} is invalid`);
+			if (!this.verifyDigest(p.address.key, promiseDigest, p.value)) throw new Error(`Promise signature for ${JSON.stringify(p.address)} is invalid`);
 		});
 
 		// Are there any rejected or invalid promises?
@@ -189,29 +190,29 @@ export class TrxParticipant {
 		}
 
 		// Is our promise needed?
-		const { key } = this.state.self.address;
-		if (participants.includes(key) && !record.promises.some(p => p.key === key)) {
+		const address = this.state.self.address;
+		if (participants.some(par => addressesMatch(par.address, address)) && !record.promises.some(p => addressesMatch(p.address, address))) {
 			return RecordState.ourPromiseNeeded;
 		}
 
 		// Are we still waiting on all promises?
-		if (!participants.every(p => record.promises.some(s => s.key === p))) {
+		if (!participants.every(par => record.promises.some(s => addressesMatch(s.address, par.address)))) {
 			if (record.commits.length !== 0) throw new Error(`Commit signatures present on un-promised transaction`);
 			return RecordState.promising;
 		}
 
 		// No duplicate commit signatures should be present
-		if (record.commits.length !== new Set(record.commits.map(p => p.key)).size) throw new Error(`Duplicate commit signatures present`);
+		if (record.commits.length !== new Set(record.commits.map(p => JSON.stringify(p.address))).size) throw new Error(`Duplicate commit signatures present`);
 
 		const referees = getReferees(record);
 		// Commit signatures should be for a referee
-		if (record.commits.some(p => !referees.includes(p.key))) throw new Error(`Commit signature is not for a referee`);
+		if (record.commits.some(p => !referees.some(r => addressesMatch(p.address, r.address)))) throw new Error(`Commit signature is not for a referee`);
 
 		// Validate all present commit signatures
 		const commitDigest = getCommitDigest(record);
 		record.commits.forEach(p => {
-			if (!this.verifyDigest(p.key, commitDigest, p.value)) throw new Error(`Commit signature for ${p.key} is invalid`);
-			if (p.type !== SignatureTypes.commit && p.type !== SignatureTypes.noCommit) throw new Error(`Invalid commit signature type for ${p.key}`);
+			if (!this.verifyDigest(p.address.key, commitDigest, p.value)) throw new Error(`Commit signature for ${JSON.stringify(p.address)} is invalid`);
+			if (p.type !== SignatureTypes.commit && p.type !== SignatureTypes.noCommit) throw new Error(`Invalid commit signature type for ${JSON.stringify(p.address)}`);
 		});
 
 		// Is there a rejection majority?
@@ -221,7 +222,7 @@ export class TrxParticipant {
 		}
 
 		// Is our commit needed?
-		if (referees.includes(key) && !record.commits.some(p => p.key === key)) {
+		if (referees.some(r => addressesMatch(r.address, address)) && !record.commits.some(c => addressesMatch(c.address, address))) {
 			return RecordState.ourCommitNeeded;
 		}
 
@@ -243,12 +244,12 @@ function isConsensus(n: number, total: number) {
 	return n >= Math.ceil(total / 2);
 }
 
-function getParticipants(record: TrxRecord) {
-	return Object.entries(record.topology.members).filter(([, member]) => member.types.includes(MemberTypes.participant)).map(([k]) => k);
+function getParticipants(record: TrxRecord): DependentMember[] {
+	return record.topology.members.filter(member => member.types.includes(MemberTypes.participant));
 }
 
-function getReferees(record: TrxRecord) {
-	return Object.entries(record.topology.members).filter(([, member]) => member.types.includes(MemberTypes.referee)).map(([k]) => k);
+function getReferees(record: TrxRecord): DependentMember[] {
+	return record.topology.members.filter(member => member.types.includes(MemberTypes.referee));
 }
 
 function createDigest(trx: TrxRecord, additionalData: string[] = []) {
@@ -265,20 +266,6 @@ function createDigest(trx: TrxRecord, additionalData: string[] = []) {
 	return hash.digest('base64');
 }
 
-function recordsEqual(a: TrxRecord | undefined, b: TrxRecord | undefined) {
-	return !a && !b
-		|| (
-			a && b
-				&& a.transactionCode === b.transactionCode && a.sessionCode === b.sessionCode
-				&& JSON.stringify(a.payload) === JSON.stringify(b.payload)
-				&& JSON.stringify(a.topology) === JSON.stringify(b.topology)
-				&& (a.commits?.length ?? 0) === (b.commits?.length ?? 0)
-				&& (a.promises?.length ?? 0) === (b.promises?.length ?? 0)
-				&& a.commits.every((c, i) => c.key === b.commits[i].key && c.type === b.commits[i].type && c.value === b.commits[i].value)
-				&& a.promises.every((c, i) => c.key === b.promises[i].key && c.type === b.promises[i].type && c.value === b.promises[i].value)
-		);
-}
-
 function getPromiseDigest(trx: TrxRecord, additionalData: string[] = []) {
 	return createDigest(trx, additionalData);
 }
@@ -291,10 +278,10 @@ function getCommitDigest(trx: TrxRecord, additionalData: string[] = []) {
 function mergeSignatures(sigs1: Signature[], sigs2: Signature[]) {
 	const candidates = [...sigs1];
 	sigs2.forEach(p => {
-		const index = candidates.findIndex(s => s.key == p.key);
+		const index = candidates.findIndex(s => addressesMatch(s.address, p.address));
 		if (index >= 0) {
 			const match = candidates[index];
-			if (match.value !== p.value || match.type !== p.type) throw new Error(`Signature or type for ${p.key} has changed`);
+			if (match.value !== p.value || match.type !== p.type) throw new Error(`Signature or type for ${JSON.stringify(p.address)} has changed`);
 			candidates.splice(index, 1);
 		}
 	});
@@ -302,7 +289,6 @@ function mergeSignatures(sigs1: Signature[], sigs2: Signature[]) {
 }
 
 function hasPhysical(address: string | undefined): boolean {
-	// TODO: distinguish between logical only and physical addresses
 	return Boolean(address) && address!.length > 0;
 }
 

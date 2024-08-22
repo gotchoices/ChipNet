@@ -4,6 +4,7 @@
   * Failure modes simulated
   * Translation to state-based member-level instructions?
 Translates to set of state-based instructions for each node
+* Stalled transaction handling (reach out periodically)
 * Key and resource lifetime hooks (hold at promise, release at majority vote received)
 * Logical clock concept described in ChipNet for complete timing related coverage
 * Get type checking working in jest tests

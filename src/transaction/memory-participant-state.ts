@@ -1,6 +1,6 @@
 import { TrxParticipantState } from "./participant-state";
 import { TrxRecord } from "./record";
-import { IdentifiedMember } from "..";
+import { Address, IdentifiedMember } from "..";
 
 export class MemoryTrxParticipantState implements TrxParticipantState {
 	constructor (
@@ -24,16 +24,17 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 		}
 	}
 
-	async getPeerRecord(key: string, transactionCode: string): Promise<TrxRecord | undefined> {
-		return this.peerRecords.get(key)?.get(transactionCode);
+	async getPeerRecord(address: Address, transactionCode: string): Promise<TrxRecord | undefined> {
+		return this.peerRecords.get(JSON.stringify(address))?.get(transactionCode);
 	}
 
-	async setPeerRecord(key: string, record: TrxRecord): Promise<void> {
-		const peer = this.peerRecords.get(key);
+	async setPeerRecord(address: Address, record: TrxRecord): Promise<void> {
+		const addressKey = JSON.stringify(address);
+		const peer = this.peerRecords.get(addressKey);
 		if (peer) {
 			peer.set(record.transactionCode, record);
 		} else {
-			this.peerRecords.set(key, new Map([[record.transactionCode, record]]));
+			this.peerRecords.set(addressKey, new Map([[record.transactionCode, record]]));
 		}
 	}
 
