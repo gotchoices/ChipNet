@@ -16,12 +16,7 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 	}
 
 	async getRecord(transactionCode: string): Promise<TrxRecord> {
-		const record = this.records.get(transactionCode);
-		if (record) {
-			return record;
-		} else {
-			throw new Error("Record not found.");
-		}
+		return this.records.get(transactionCode);
 	}
 
 	async getPeerRecord(address: Address, transactionCode: string): Promise<TrxRecord | undefined> {
