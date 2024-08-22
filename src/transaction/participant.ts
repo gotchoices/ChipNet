@@ -138,7 +138,7 @@ export class TrxParticipant {
 		return modified;
 	}
 
-	async validateAndMerge(prior: TrxRecord, record: TrxRecord) {
+	async validateAndMerge(prior: TrxRecord | undefined, record: TrxRecord) {
 		if (!prior) {
 			await this.validateNew(record);
 			return record;

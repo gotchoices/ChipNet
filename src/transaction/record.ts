@@ -1,6 +1,5 @@
-import { Address } from "..";
+import { Address, addressesMatch } from "..";
 import { Topology } from "../topology";
-import { TrxRecord } from "./record";
 
 export type SignatureType = 1 | -1 | 2 | -2;
 export const SignatureTypes = { promise: 1, noPromise: -1, commit: 2, noCommit: -2 } as const;
@@ -18,7 +17,9 @@ export interface TrxRecord {
 	topology: Topology
 	promises: Signature[];
 	commits: Signature[];
-}export function recordsEqual(a: TrxRecord | undefined, b: TrxRecord | undefined) {
+}
+
+export function recordsEqual(a: TrxRecord | undefined, b: TrxRecord | undefined) {
 	return !a && !b
 		|| (
 			a && b
@@ -27,8 +28,8 @@ export interface TrxRecord {
 			&& JSON.stringify(a.topology) === JSON.stringify(b.topology)
 			&& (a.commits?.length ?? 0) === (b.commits?.length ?? 0)
 			&& (a.promises?.length ?? 0) === (b.promises?.length ?? 0)
-			&& a.commits.every((c, i) => c.key === b.commits[i].key && c.type === b.commits[i].type && c.value === b.commits[i].value)
-			&& a.promises.every((c, i) => c.key === b.promises[i].key && c.type === b.promises[i].type && c.value === b.promises[i].value)
+			&& a.commits.every((c, i) => addressesMatch(c.address, b.commits[i].address) && c.type === b.commits[i].type && c.value === b.commits[i].value)
+			&& a.promises.every((c, i) => addressesMatch(c.address, b.promises[i].address) && c.type === b.promises[i].type && c.value === b.promises[i].value)
 		);
 }
 

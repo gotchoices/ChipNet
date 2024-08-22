@@ -15,7 +15,7 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 		this.records.set(record.transactionCode, record);
 	}
 
-	async getRecord(transactionCode: string): Promise<TrxRecord> {
+	async getRecord(transactionCode: string): Promise<TrxRecord | undefined> {
 		return this.records.get(transactionCode);
 	}
 
