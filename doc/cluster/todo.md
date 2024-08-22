@@ -1,4 +1,4 @@
-* Use Address rather than key for peers
+* Process the update for each occurrence of self in members (right now it assumes it only occurs once)
 * Simulation
   * Originator of transaction simulates sequence of reachability, with error margins of timing - A phase for promise, B phase for commit
   * Failure modes simulated

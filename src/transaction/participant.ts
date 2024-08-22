@@ -36,8 +36,11 @@ export class TrxParticipant {
 		try {
 			// TODO: if expired, still propagate (and sign as failed)
 			const merged = await this.validateAndMerge(prior, record);
+			const ourMembers = await this.findOurMembers(merged);
+			foreach (const outMember of ourMembers) {
+				const { member, links }...
+			}
 			const recordState = await this.getRecordState(merged);
-			const { member, links } = await this.findOurMember(merged);
 			switch (recordState) {
 				case RecordState.ourPromiseNeeded: {
 					await this.resource.promise(member, links, merged);
@@ -70,17 +73,17 @@ export class TrxParticipant {
 		}
 	}
 
-	private async findOurMember(record: TrxRecord): Promise<{ member: Member, links: TrxLink[] }> {
+	private async findOurMembers(record: TrxRecord): Promise<{ member: Member, links: TrxLink[] }[]> {
 		const ourAddress = this.state.self.address;
-		const ourMember = findMember(record.topology, ourAddress);
-		if (!ourMember) throw new Error(`Our member ${JSON.stringify(ourAddress)} not found in topology`);
-		return {
+		const ourMembers = findMember(record.topology, ourAddress);
+		if (!ourMembers.length) throw new Error(`Our member ${JSON.stringify(ourAddress)} not found in topology`);
+		return ourMembers.map(member => ({
 			// Our member in the topology
-			member: ourMember,
+			member,
 			// Incoming and outgoing links to our member
 			links: Object.entries(record.topology.links).filter(([, l]) => addressesMatch(l.target, ourAddress) || addressesMatch(l.source, ourAddress))
 				.map(([nonce, link]) => ({ nonce, link } as TrxLink))
-		};
+		}));
 	}
 
 	private async pushModified(record: TrxRecord) {
