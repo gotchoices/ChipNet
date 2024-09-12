@@ -11,4 +11,5 @@ export interface TrxParticipantState {
 	setPeerRecord(address: Address, record: TrxRecord): Promise<void>;
 
 	logInvalid(record: TrxRecord, err: unknown): Promise<void>;
+	logUpdateError(record: TrxRecord, address: Address, err: unknown): Promise<void>;
 }

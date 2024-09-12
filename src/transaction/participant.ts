@@ -95,10 +95,15 @@ export class TrxParticipant {
 		// TODO: put into Pending objects to monitor and log
 	}
 
-	private async pushPeerRecord(address: Address, record: TrxRecord) {
-		await this.updatePeer(address, record);
-		await this.state.setPeerRecord(address, record);
-	}
+  private async pushPeerRecord(address: Address, record: TrxRecord) {
+    try {
+      await this.updatePeer(address, record);
+    } catch (err) {
+      await this.state.logUpdateError(record, address, err);
+      return;
+    }
+    await this.state.setPeerRecord(address, record);
+  }
 
 	private async reachablePeers(record: TrxRecord): Promise<Address[]> {
 		const ourAddress = this.state.self.address;

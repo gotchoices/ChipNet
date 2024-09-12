@@ -36,4 +36,8 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 	async logInvalid(record: TrxRecord, err: unknown): Promise<void> {
 		console.error(`Invalid record (${err}): ${JSON.stringify(record)}`);
 	}
+
+  async logUpdateError(record: TrxRecord, address: Address, err: unknown): Promise<void> {
+    console.error(`Error sending update to peer ${address} (${err})`);
+  }
 }
