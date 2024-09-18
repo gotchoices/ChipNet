@@ -10,10 +10,11 @@ export interface TrxLink {
 
 export interface TrxParticipantResource {
 	/** Preliminary (policy based) validation of the record */
-	shouldPromise?: (member: Member, links: TrxLink[], record: TrxRecord) => Promise<boolean>;
+	shouldPromise?: (member: Member, inLink: TrxLink | undefined, outLink: TrxLink | undefined, record: TrxRecord) => Promise<boolean>;
 	/** Actually hold resources for this transaction - should throw exception if fails */
-	promise: (member: Member, links: TrxLink[], record: TrxRecord) => Promise<void>;
-	shouldCommit?: (member: Member, links: TrxLink[], record: TrxRecord) => Promise<boolean>;
+	promise: (member: Member, inLink: TrxLink | undefined, outLink: TrxLink | undefined, record: TrxRecord) => Promise<void>;
+	/** Whether this node should commit to the transaction */
+	shouldCommit?: (member: Member, inLink: TrxLink | undefined, outLink: TrxLink | undefined, record: TrxRecord) => Promise<boolean>;
 	/** Commit or rollback transaction */
-	release: (isSuccess: boolean, member: Member, links: TrxLink[], record: TrxRecord) => Promise<void>;
+	release: (isSuccess: boolean, member: Member, inLink: TrxLink | undefined, outLink: TrxLink | undefined, record: TrxRecord) => Promise<void>;
 }
