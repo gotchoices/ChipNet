@@ -15,13 +15,8 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 		this.records.set(record.transactionCode, record);
 	}
 
-	async getRecord(transactionCode: string): Promise<TrxRecord> {
-		const record = this.records.get(transactionCode);
-		if (record) {
-			return record;
-		} else {
-			throw new Error("Record not found.");
-		}
+	async getRecord(transactionCode: string): Promise<TrxRecord | undefined> {
+		return this.records.get(transactionCode);
 	}
 
 	async getPeerRecord(address: Address, transactionCode: string): Promise<TrxRecord | undefined> {
@@ -41,4 +36,8 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 	async logInvalid(record: TrxRecord, err: unknown): Promise<void> {
 		console.error(`Invalid record (${err}): ${JSON.stringify(record)}`);
 	}
+
+  async logUpdateError(record: TrxRecord, address: Address, err: unknown): Promise<void> {
+    console.error(`Error sending update to peer ${address} (${err})`);
+  }
 }
