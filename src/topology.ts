@@ -14,6 +14,8 @@ export interface Topology {
 	links: Record<Nonce, Link>;	// Links by nonce
 }
 
-export function findMember(topology: Topology, address: Address): DependentMember[] {
-	return topology.members.filter(m => addressesMatch(m.address, address));
+export function findMembers(topology: Topology, address: Address): { member: DependentMember, index: number }[] {
+	return topology.members.map((m, i) => ({ member: m, index: i }))
+		.filter(({ member }) => addressesMatch(member.address, address))
+		.map(({ member, index }) => ({ member, index }));
 }
