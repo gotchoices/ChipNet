@@ -47,7 +47,9 @@ describe('Simple discovery', () => {
 		expect(result[0].path.every(p => Object.keys(p.intents).length === 1)).toBe(true);
 		expect(result[0].path.every(p => p.intents['L']["balance"] === 100)).toBe(true);
 		//expect((await scenario.peerStates['N1'].getPeerLinksByNonce(sessionCode))[result[0].path[0].nonce]).toBe('L1');
-		expect((await scenario.participantStates['N1'].getContext(sessionCode, [])).linkIdsByNonce[result[0].path[0].nonce]).toBe('L1');
+		const mapper = await scenario.participantStates['N1'].getNonceToLinkMap(sessionCode);
+		expect(mapper).not.toBeUndefined();
+		expect(mapper[result[0].path[0].nonce]).toBe('L1');
 		expect(Object.keys(result[0].members).length).toBe(4);
 		expect(result[0].members[0].address.key).toBe('N1');
 		expect(result[0].members[3].address.key).toBe('N6');

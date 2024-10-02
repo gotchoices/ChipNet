@@ -1,0 +1,16 @@
+@startuml
+left to right direction
+
+node N1
+node N2
+node N3
+node N4
+node N5
+
+N1 -[#Red]-> N2 : L1
+N2 -[#Red]-> N5 : L2
+N2 -[#Blue]-> N3 : L3
+N3 -[#Blue]-> N4 : L4
+N4 -[#Blue]-> N2 : L5
+
+@enduml

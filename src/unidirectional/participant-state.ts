@@ -28,6 +28,9 @@ export interface UniParticipantState {
 	reportCycles(query: UniQuery, path: string[], collisions: string[]): Promise<void>;
 	reportTimingViolation(query: UniQuery, path: string[]): Promise<void>;
 
+	/** @returns a mapping of nonce to link id for the given query session */
+	getNonceToLinkMap(sessionCode: string): Promise<Record<string, string>>;
+
 	trace?: TraceFunc
 }
 

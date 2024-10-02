@@ -5,6 +5,7 @@ import { Member } from "../member";
 
 export interface TrxLink {
 	nonce: Nonce;
+	linkId?: string;
 	link: Link;
 }
 

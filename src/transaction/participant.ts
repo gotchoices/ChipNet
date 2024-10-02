@@ -23,6 +23,7 @@ export class TrxParticipant {
 		public readonly cryptoHash: CryptoHash,
 		public readonly updatePeer: (address: Address, record: TrxRecord) => Promise<void>,
 		public readonly resource: TrxParticipantResource,
+		public readonly nonceToLinkMap: Record<string, string> | undefined,
 	) { }
 
 	public async update(record: TrxRecord, fromAddress?: Address): Promise<void> {
@@ -86,8 +87,8 @@ export class TrxParticipant {
 			// Our member in the topology
 			member: ourMembers[0].member,
 			// Incoming and outgoing links to our member
-			inLinks: inLinks.map(([nonce, link]) => ({ nonce, link })),
-			outLinks: outLinks.map(([nonce, link]) => ({ nonce, link })),
+			inLinks: inLinks.map(([nonce, link]) => ({ nonce, link, linkId: this.nonceToLinkMap?.[nonce] })),
+			outLinks: outLinks.map(([nonce, link]) => ({ nonce, link, linkId: this.nonceToLinkMap?.[nonce] })),
 		};
 	}
 
@@ -122,6 +123,7 @@ export class TrxParticipant {
 			// union - Members linked to our member
 			.concat(Object.entries(record.topology.links).filter(([, l]) => addressesMatch(l.target, ourAddress)).map(([, l]) => l.source));
 	}
+
 	private async addOurCommit(member: Member, inLinks: TrxLink[], outLinks: TrxLink[], record: TrxRecord): Promise<TrxRecord> {
 		const approved = !this.cryptoHash.isExpired(record.transactionCode)
 			&& !this.cryptoHash.isExpired(record.sessionCode)

@@ -8,8 +8,8 @@ import { TraceFunc } from "../trace";
 import { QueryContext } from "./query-context";
 
 export class MemoryUniParticipantState implements UniParticipantState {
-	/** Query contexts by "<session code>:<comma separated path>"" */
-	private _contexts: Record<string, QueryContext> = {};
+	/** Query contexts nested by session code and path */
+	private _contexts: Record<string, Record<string, QueryContext>> = {};
 	private _cycles: { query: UniQuery, path: string[], collisions: string[] }[] = [];
 	private _peerOverheads: Record<string, number> = {};
 	public defaultOverhead = 30;	// ms
@@ -28,7 +28,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 	}
 
 	async getContext(sessionCode: string, path: string[]): Promise<QueryContext> {
-		const queryState = this._contexts[contextKey(sessionCode, path)];
+		const queryState = this._contexts[sessionCode]?.[path.join(',')];
 		if (!queryState) {
 			throw new Error(`Query '${sessionCode}' from path ${path.join(',')} not found`);
 		}
@@ -36,7 +36,12 @@ export class MemoryUniParticipantState implements UniParticipantState {
 	}
 
 	async saveContext(context: QueryContext, path: string[]): Promise<void> {
-		this._contexts[contextKey(context.query.sessionCode, path)] = context;
+		let sessionContexts = this._contexts[context.query.sessionCode];
+		if (!sessionContexts) {
+			sessionContexts = {};
+			this._contexts[context.query.sessionCode] = sessionContexts;
+		}
+		sessionContexts[path.join(',')] = context;
 
 		const pathText = path.join(',');
 		context.activeQuery?.candidates.filter(c => c.request).forEach(c => {
@@ -66,6 +71,13 @@ export class MemoryUniParticipantState implements UniParticipantState {
 		this._peerOverheads[pathText] = existing !== undefined
 			? Math.trunc((existing + overhead * 2) / 3) // weighted moving average
 			: overhead;
+	}
+
+	async getNonceToLinkMap(sessionCode: string): Promise<Record<string, string>> {
+		return Object.values(this._contexts[sessionCode] || {})
+			.reduce((acc, context) => {
+				return { ...acc, ...context.linkIdsByNonce };
+			}, {});
 	}
 
 	async reportTimingViolation(query: UniQuery, path: string[]): Promise<void> {
