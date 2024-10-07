@@ -145,7 +145,7 @@ await budgetedStep(1000, requests);
 					? await Promise.all(
 						findResult.peerMatch?.map(async m => [m.link.id, await this.cryptoHash.makeNonce(m.link.id, query.sessionCode)] as const)
 					) : []
-			));
+			)).concat(linkId ? [[linkId, await this.cryptoHash.makeNonce(linkId, query.sessionCode)]] : []);
 		const noncesByLinkId = Object.fromEntries(nonceLinkMap);
 		const linkIdsByNonce = Object.fromEntries(nonceLinkMap.map(([linkId, nonce]) => [nonce, linkId]));
 
