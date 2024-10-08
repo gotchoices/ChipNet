@@ -12,7 +12,7 @@ export class UniParticipant {
 		public readonly state: UniParticipantState,
 		public readonly asymmetricVault: AsymmetricVault,
 		public readonly cryptoHash: CryptoHash,
-		public findAddress: (query: UniQuery) => Promise<FindResult>,
+		public findAddress: (query: UniQuery, inLinkId?: string) => Promise<FindResult>,
 		public readonly intentSatisfied: IntentSatisfiedFunc,
 		public queryPeer: QueryPeerFunc,
 	) { }
@@ -132,7 +132,7 @@ await budgetedStep(1000, requests);
 		query: UniQuery,
 		linkId?: string,
 	): Promise<QueryContext> {
-		const findResult = await this.findAddress(query);
+		const findResult = await this.findAddress(query, linkId);
 
 		// generate nonce/linkId mappings for all peers and candidates
 		const nonceLinkMap = (
