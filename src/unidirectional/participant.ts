@@ -17,25 +17,25 @@ export class UniParticipant {
 		public queryPeer: QueryPeerFunc,
 	) { }
 
-	async query(request: QueryRequest, linkId?: string): Promise<QueryResponse> {
+	async query(request: QueryRequest, inLinkId?: string): Promise<QueryResponse> {
 		if (request.entrance) {
-			return await this.enter(request.entrance.plan, request.entrance.query, request.budget, linkId);
+			return await this.enter(request.entrance.plan, request.entrance.query, request.budget, inLinkId);
 		} else if (request.reentrance) {
-			return await this.reenter(request.reentrance, request.budget, linkId);
+			return await this.reenter(request.reentrance, request.budget, inLinkId);
 		} else {
 			throw new Error("Invalid request");
 		}
 	}
 
 	/** First attempt (depth 1) search through this node */
-	private async enter(plan: Plan, query: UniQuery, budget: number, linkId?: string): Promise<QueryResponse> {
+	private async enter(plan: Plan, query: UniQuery, budget: number, inLinkId?: string): Promise<QueryResponse> {
 		const t2 = Date.now();
 
-		await this.queryRules.runAndCheck(plan, query, linkId);
+		await this.queryRules.runAndCheck(plan, query, inLinkId);
 		const pathToHere = plan.path.map(p => p.nonce);
 		await this.state.validateNewQuery(query.sessionCode, pathToHere);	// Note: throws if there's already a query in progress
 
-		const context = await this.createContext(plan, query, linkId);	// Also searches or enumerates candidates
+		const context = await this.createContext(plan, query, inLinkId);	// Also searches or enumerates candidates
 		await this.state.saveContext(context, pathToHere);
 
 		const duration = Date.now() - t2;
@@ -50,13 +50,13 @@ export class UniParticipant {
 	}
 
 	/** Query has already passed through this node.  Search one level further. */
-	async reenter(reentrance: Reentrance, budget: number, linkId?: string): Promise<QueryResponse> {
+	async reenter(reentrance: Reentrance, budget: number, inLinkId?: string): Promise<QueryResponse> {
 		const t2 = Date.now();
 
 		// Restore and validate the context
 		await this.validateTicket(reentrance);
 		const context = await this.state.getContext(reentrance.sessionCode, reentrance.path);
-		await this.validateQueryState(reentrance, context, linkId);
+		await this.validateQueryState(reentrance, context, inLinkId);
 		const active = context!.activeQuery!;
 
 		// Time has elapsed since last query.  Check for successful responses in outstanding requests before proceeding to another step
@@ -65,7 +65,7 @@ export class UniParticipant {
 		const completed = withRequests.filter(c => c.request!.isComplete);
 		const earlyPlans = this.plansFromCandidates(completed);
 		if (intentsSatisfied(context.query.intents, earlyPlans, this.intentSatisfied)) {
-			this.state.trace?.('early exit', `session=${reentrance.sessionCode} link=${linkId} plans=${earlyPlans.map(p => p.path.map(l => l.nonce).join(',')).join('; ')}`);
+			this.state.trace?.('early exit', `session=${reentrance.sessionCode} link=${inLinkId} plans=${earlyPlans.map(p => p.path.map(l => l.nonce).join(',')).join('; ')}`);
 			const stats = { earliest: Infinity, latest: 0, gross: 0, outstanding: 0, timings: [] } as QueryStats;	// no stats - out of phase
 			return await this.endReentrance(context, active, t2, stats, true, earlyPlans, reentrance);
 		}
@@ -130,9 +130,9 @@ await budgetedStep(1000, requests);
 	private async createContext(
 		plan: Plan,
 		query: UniQuery,
-		linkId?: string,
+		inLinkId?: string,
 	): Promise<QueryContext> {
-		const findResult = await this.findAddress(query, linkId);
+		const findResult = await this.findAddress(query, inLinkId);
 
 		// generate nonce/linkId mappings for all peers and candidates
 		const nonceLinkMap = (
@@ -145,7 +145,7 @@ await budgetedStep(1000, requests);
 					? await Promise.all(
 						findResult.peerMatch?.map(async m => [m.link.id, await this.cryptoHash.makeNonce(m.link.id, query.sessionCode)] as const)
 					) : []
-			)).concat(linkId ? [[linkId, await this.cryptoHash.makeNonce(linkId, query.sessionCode)]] : []);
+			)).concat(inLinkId ? [[inLinkId, await this.cryptoHash.makeNonce(inLinkId, query.sessionCode)]] : []);
 		const noncesByLinkId = Object.fromEntries(nonceLinkMap);
 		const linkIdsByNonce = Object.fromEntries(nonceLinkMap.map(([linkId, nonce]) => [nonce, linkId]));
 
@@ -273,7 +273,7 @@ await budgetedStep(1000, requests);
 		}
 	}
 
-	readonly queryRules: RuleSet<(plan: Plan, query: UniQuery, linkId?: string) => Promise<RuleResponse>> = new RuleSet([
+	readonly queryRules: RuleSet<(plan: Plan, query: UniQuery, inLinkId?: string) => Promise<RuleResponse>> = new RuleSet([
 		new Rule('SessionCode', async (plan: Plan, query: UniQuery) =>
 		({
 			passed: this.cryptoHash.isValid(query.sessionCode),
@@ -306,7 +306,7 @@ await budgetedStep(1000, requests);
 			{ dependencies: ['NonEmptyPlan'] }),
 	]);
 
-	private async validateQueryState(ticket: Reentrance, context?: QueryContext, linkId?: string) {
+	private async validateQueryState(ticket: Reentrance, context?: QueryContext, inLinkId?: string) {
 		// Verify that we haven't already given a concluding response for the query
 		const active = context?.activeQuery;
 		if (!active) {
@@ -321,8 +321,8 @@ await budgetedStep(1000, requests);
 			throw new Error(`Session code mismatch for ticket and persisted context.`);
 		}
 		// validate that if the linkId is absent, the plan's path is also empty; if linkId is present, it's nonce should match the tail entry in the plan's path
-		if (linkId) {
-			if (!context.plan.path.length || context.plan.path[context.plan.path.length - 1].nonce !== await this.cryptoHash.makeNonce(linkId, ticket.sessionCode)) {
+		if (inLinkId) {
+			if (!context.plan.path.length || context.plan.path[context.plan.path.length - 1].nonce !== await this.cryptoHash.makeNonce(inLinkId, ticket.sessionCode)) {
 				throw new Error("Incoming link Id doesn't match plan's path");	// Probably shouldn't disclose any Ids in the error message in case the error is relayed
 			}
 		} else if (context.plan.path.length) {
