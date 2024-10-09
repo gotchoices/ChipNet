@@ -6,18 +6,14 @@ export class Requester {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private _pending = new Map<string, { resolve: (value: unknown) => void, reject: (reason?: any) => void }>();
 
-	constructor(
-		private sendCallback: (message: ReceiverResponderMessage) => void,
-	) {}
-
-	request<T>(body: unknown, timeout?: number): Promise<T> {
+	request<T>(body: unknown, sendCallback: (message: ReceiverResponderMessage) => Promise<void>, timeout?: number): Promise<T> {
 		return new Promise<T>((resolve, reject) => {
 			const rawId = crypto.randomBytes(16);
 			const message = {
 				messageId: arrayToBase64(rawId),
 				body
 			} as ReceiverResponderMessage;
-			this.sendCallback(message);
+			sendCallback(message).catch(reject);
 			this._pending.set(message.messageId, { resolve: resolve as (value: unknown) => void, reject });
 			if (timeout) {
 				setTimeout(() => {

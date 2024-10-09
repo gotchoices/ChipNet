@@ -1,10 +1,11 @@
 import { Responder } from '../src/responder';
 import { ReceiverResponderMessage } from '../src/receiver-responder-message';
 
+type BodyType = { data: string };
 describe('Responder', () => {
 	it('should send a request and receive a response', async () => {
-		const requestBody = { data: 'Hello' };
-		const responseBody = { data: 'World' };
+		const requestBody: BodyType = { data: 'Hello' };
+		const responseBody: BodyType = { data: 'World' };
 		const requestMessage: ReceiverResponderMessage = {
 			messageId: '12345',
 			body: requestBody,
@@ -19,10 +20,10 @@ describe('Responder', () => {
 			processBody = body;
 			return responseBody;
 		}
-		const sentCallback = (message: ReceiverResponderMessage) => {
+		const sentCallback = async (message: ReceiverResponderMessage) => {
 			sentMessage = message;
 		};
-		const responder = new Responder(sentCallback, processCallback);
+		const responder = new Responder(processCallback, sentCallback);
 		const promise = responder.request(requestMessage);
 		await promise;
 		expect(sentMessage).toStrictEqual(responseMessage);

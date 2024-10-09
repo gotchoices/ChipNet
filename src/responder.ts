@@ -2,8 +2,8 @@ import { ReceiverResponderMessage } from './receiver-responder-message';
 
 export class Responder {
 	constructor(
-		private sendCallback: (message: ReceiverResponderMessage) => void,
 		private processCallback: (body: unknown) => Promise<unknown>,
+		private sendCallback: (message: ReceiverResponderMessage) => Promise<void>,
 	) {}
 
 	/** A request has been received.  This is async so that errors can be handled by the caller. */
@@ -15,13 +15,13 @@ export class Responder {
 		}
 		catch (error)
 		{
-			this.sendCallback({
+			await this.sendCallback({
 				messageId: message.messageId,
 				error,
 			});
 			return;
 		}
-		this.sendCallback({
+		await this.sendCallback({
 			messageId: message.messageId,
 			body: response,
 		} as ReceiverResponderMessage);

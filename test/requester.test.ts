@@ -6,11 +6,11 @@ describe('Requester', () => {
 		// TODO: replace with jest mocks if you can get that to work
 
 		let sentMessage: ReceiverResponderMessage | undefined = undefined;
-		const requester = new Requester((message) => { sentMessage = message; });
+		const requester = new Requester();
 		const requestBody = { data: 'Hello' };
 		const responseBody = { data: 'World' };
 
-		const promise = requester.request(requestBody);
+		const promise = requester.request(requestBody, async (message) => { sentMessage = message; });
 		expect(sentMessage).toBeDefined();
 		expect(sentMessage).toStrictEqual({
 			messageId: sentMessage!.messageId,
