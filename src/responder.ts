@@ -17,7 +17,7 @@ export class Responder {
 		{
 			await this.sendCallback({
 				messageId: message.messageId,
-				error,
+				error: error instanceof Error ? error.message : String(error),
 			});
 			return;
 		}
