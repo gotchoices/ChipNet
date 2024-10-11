@@ -16,6 +16,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 
 	constructor(
 		public readonly cryptoHash: CryptoHash,
+		public readonly contextSaved?: (context: QueryContext, path: string[]) => void,
 		public readonly trace?: TraceFunc,
 	) {
 	}
@@ -42,6 +43,7 @@ export class MemoryUniParticipantState implements UniParticipantState {
 			this._contexts[context.query.sessionCode] = sessionContexts;
 		}
 		sessionContexts[path.join(',')] = context;
+		this.contextSaved?.(context, path);
 
 		const pathText = path.join(',');
 		context.activeQuery?.candidates.filter(c => c.request).forEach(c => {
