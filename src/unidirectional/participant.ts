@@ -134,18 +134,13 @@ await budgetedStep(1000, requests);
 	): Promise<QueryContext> {
 		const findResult = await this.findAddress(query, inLinkId);
 
+		const nonces = (findResult.candidates ? findResult.candidates.map(c => c.id) : [])
+			.concat(findResult.peerMatch?.map(m => m.link.id) ?? [])
+			.concat(inLinkId ? [inLinkId] : []);
 		// generate nonce/linkId mappings for all peers and candidates
-		const nonceLinkMap = (
-			findResult.candidates
-				? await Promise.all(
-					findResult.candidates.map(async c => [c.id, await this.cryptoHash.makeNonce(c.id, query.sessionCode)] as const)
-				) : []
-			).concat((
-				findResult.peerMatch
-					? await Promise.all(
-						findResult.peerMatch?.map(async m => [m.link.id, await this.cryptoHash.makeNonce(m.link.id, query.sessionCode)] as const)
-					) : []
-			)).concat(inLinkId ? [[inLinkId, await this.cryptoHash.makeNonce(inLinkId, query.sessionCode)]] : []);
+		const nonceLinkMap = await Promise.all(
+			nonces.map(async nonce => [nonce, await this.cryptoHash.makeNonce(nonce, query.sessionCode)] as const)
+		);
 		const noncesByLinkId = Object.fromEntries(nonceLinkMap);
 		const linkIdsByNonce = Object.fromEntries(nonceLinkMap.map(([linkId, nonce]) => [nonce, linkId]));
 
@@ -224,22 +219,20 @@ await budgetedStep(1000, requests);
 	}
 
 	private async processAndFilterCandidates(candidates: QueryCandidate[], plan: Plan, query: UniQuery) {
-		// Determine any eligible intents and include nonces for all candidates
-		const resolvedCandidates = await Promise.all(candidates
+		// Determine any eligible intents for all candidates
+		const resolvedCandidates = candidates
 			.map(candidate => ({ ...candidate,
 				intents: processIntents(candidate.intents ?? {} as Intents,
 					intents => intents.map(intent => this.options.negotiateIntent(intent, query.intents))
 						.filter(Boolean) as Intent[])
 			}))
-			.filter(({ intents }) => intents && Object.keys(intents).length)	// Filter out candidates with no eligible intents
-			.map(async candidate => ({ candidate, nonce: await this.cryptoHash.makeNonce(candidate.linkId, query.sessionCode) }))
-		);
+			.filter(({ intents }) => intents && Object.keys(intents).length);	// Filter out candidates with no eligible intents
 
 		// Detect cycles in the candidates
 		const cycles = new Set<string>(
 			resolvedCandidates
 				.filter(c => plan.path.some(p => p.nonce === c.nonce))
-				.map(c => c.candidate.linkId)
+				.map(c => c.linkId)
 		);
 
 		// Report cycles
@@ -247,7 +240,7 @@ await budgetedStep(1000, requests);
 			void this.state.reportCycles(query, plan.path.map(p => p.nonce), [...cycles]);	// Fire and forget
 		}
 
-		const results = resolvedCandidates.filter(c => !cycles.has(c.nonce)).map(c => c.candidate);
+		const results = resolvedCandidates.filter(c => !cycles.has(c.nonce));
 
 		this.state.trace?.('candidate filter', `candidates=${candidates.length} results=${results.length}`);	// `candidates=${candidates.map(c => c.linkId).join(', ')
 
