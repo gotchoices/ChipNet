@@ -156,20 +156,19 @@ await budgetedStep(1000, requests);
 		// TODO: only return activeQuery if intents aren't satisfied
 		const context = candidates ? { activeQuery: { depth: 1, candidates } } : {};
 
-		const rawPlans =
+		const rawPaths =
 			(findResult.selfIsMatch)
-				? [prependMatch({ sessionCode: query.sessionCode, path: [...plan.path], members: [] } as Plan, findResult.self)]
+				? [[...plan.path]]
 				: (findResult.peerMatch?.length)
-					? findResult.peerMatch.map(m => prependMatch(
-							prependMatch(
-								{
-									sessionCode: query.sessionCode,
-									path: [...plan.path, { nonce: noncesByLinkId[m.link.id], intents: m.link.intents }],
-									members: []
-								} as Plan,
-								m.match),
-							findResult.self))
+					? findResult.peerMatch.map(m => [...plan.path, { nonce: noncesByLinkId[m.link.id], intents: m.link.intents }])
 					: [];
+		const rawPlans = rawPaths.map(path =>
+			prependMatch({
+				sessionCode: query.sessionCode,
+				path,
+				members: [],
+				payload: findResult.payload
+			} as Plan, findResult.self));
 		const plans = this.processAndFilterPlans(rawPlans, query);
 
 		if (this.state.trace) {

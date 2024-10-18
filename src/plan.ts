@@ -17,6 +17,8 @@ export interface Plan {
 	/** All members (participants first, then referees or relays)
 	 * These are filled out once the search succeeds and the result propagates back towards the originator */
 	members: DependentMember[];
+	/** Payload for the plan - e.g. message from terminus to originator */
+	payload?: Record<string, unknown>;
 }
 
 /** @returns new plan with the given link added to the path */

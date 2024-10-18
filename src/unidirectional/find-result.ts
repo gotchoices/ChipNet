@@ -22,4 +22,7 @@ export interface FindResult {
 
 	/** Links that are candidates for further searching.  Should be populated, even if the address is found, in case the intents aren't satisfied. */
 	readonly candidates?: PrivateLink[];
+
+	/** Payload for the plan - e.g. message from terminus to originator */
+	readonly payload?: Record<string, unknown>;
 }
