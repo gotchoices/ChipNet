@@ -2,7 +2,7 @@
 import { AsymmetricVault, CryptoHash } from "chipcryptbase";
 import { Sparstogram } from "sparstogram";
 import { ActiveQuery, QueryCandidate, QueryContext, UniParticipantOptions, UniParticipantState, UniQuery, FindResult, Match } from ".";
-import { DependentMember, IdentifiedMember, Intent, IntentSatisfiedFunc, Intents, MemberTypes, NegotiatePlanFunc, Plan, QueryPeerFunc, QueryRequest, QueryResponse, QueryStats, Reentrance, addressesMatch, appendPath, budgetedStep, intentsSatisfied, processIntents } from "..";
+import { DependentMember, IdentifiedMember, Intent, IntentSatisfiedFunc, Intents, MemberTypes, NegotiatePlanFunc, Plan, PlanLink, QueryPeerFunc, QueryRequest, QueryResponse, QueryStats, Reentrance, addressesMatch, appendPath, budgetedStep, intentsSatisfied, processIntents } from "..";
 import { Pending } from "../pending";
 import { Rule, RuleResponse, RuleSet } from "../rule";
 
@@ -156,19 +156,21 @@ await budgetedStep(1000, requests);
 		// TODO: only return activeQuery if intents aren't satisfied
 		const context = candidates ? { activeQuery: { depth: 1, candidates } } : {};
 
-		const rawPaths =
+		const rawMatches: { path: PlanLink[]; match?: Match }[] =
 			(findResult.selfIsMatch)
-				? [[...plan.path]]
+				? [{ path: [...plan.path] }]
 				: (findResult.peerMatch?.length)
-					? findResult.peerMatch.map(m => [...plan.path, { nonce: noncesByLinkId[m.link.id], intents: m.link.intents }])
+					? findResult.peerMatch.map(m => ({ path: [...plan.path, { nonce: noncesByLinkId[m.link.id], intents: m.link.intents }], match: m.match }))
 					: [];
-		const rawPlans = rawPaths.map(path =>
-			prependMatch({
+		const rawPlans = rawMatches.map(({ path, match }) => {
+			const plan = {
 				sessionCode: query.sessionCode,
 				path,
 				members: [],
 				payload: findResult.payload
-			} as Plan, findResult.self));
+			} as Plan;
+			return prependMatch(match ? prependMatch(plan, match) : plan, findResult.self);
+		});
 		const plans = this.processAndFilterPlans(rawPlans, query);
 
 		if (this.state.trace) {
