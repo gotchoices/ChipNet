@@ -33,46 +33,54 @@ export class TrxParticipant {
 		}
 
 		// Load the prior known state of the record from state
-		const prior = await this.state.getRecord(record.transactionCode);
+		let prior = await this.state.getRecord(record.transactionCode);
 		try {
 			// TODO: if expired, still propagate (and sign as failed)
-			const merged = await this.validateAndMerge(prior, record);
-			const ourMember = await this.findOurMember(merged);
-			if (!ourMember) {	// We are not in the topology
-				await this.pushModified(merged);
+			let running: TrxRecord | undefined = await this.validateAndMerge(prior, record);
+			const ourMember = await this.findOurMember(running);
+			if (!ourMember) {	// We are not in the topology - just propagate
+				await this.pushModified(running);
 				return;
 			}
-			const { member, inLinks, outLinks } = ourMember;
-			const recordState = await this.getRecordState(merged);
-			switch (recordState) {
-				case RecordState.ourPromiseNeeded: {
-					await this.resource.promise(member, inLinks, outLinks, merged);
-					const modified = await this.addOurPromise(member, inLinks, outLinks, merged);
-					await this.state.setRecord(modified);
-					await this.pushModified(modified);
-				} break;
-				case RecordState.ourCommitNeeded: {
-					const modified = await this.addOurCommit(member, inLinks, outLinks, merged);
-					if (isConsensus(modified.commits.filter(c => c.type === SignatureTypes.commit).length, getReferees(modified).length)) {	// We completed the consensus
-						await this.resource.release(true, member, inLinks, outLinks, modified);
-					}
-					await this.state.setRecord(modified);
-					await this.pushModified(modified);
-				} break;
-				default: {
-					if (!recordsEqual(merged, prior)) {
-						if ((recordState === RecordState.consensus || recordState === RecordState.rejected)) {
-							await this.resource.release(recordState === RecordState.consensus, member, inLinks, outLinks, merged);
-						}
-						await this.state.setRecord(merged);
-						await this.pushModified(merged);
-					}
+			while (running) {
+				const modified = await this.advanceState(ourMember, running, prior);
+				prior = running;
+				running = modified;
+				if (running) {
+					await this.state.setRecord(running);
+					await this.pushModified(running);
 				}
 			}
 		}
 		catch (err) {
 			await this.state.logInvalid(record, err);
 			throw err;
+		}
+	}
+
+	private async advanceState(ourMember: { member: Member; inLinks: TrxLink[]; outLinks: TrxLink[]; }, record: TrxRecord, prior: TrxRecord | undefined): Promise<TrxRecord | undefined> {
+		const { member, inLinks, outLinks } = ourMember;
+		const recordState = await this.getRecordState(record);
+		switch (recordState) {
+			case RecordState.ourPromiseNeeded: {
+				await this.resource.promise(member, inLinks, outLinks, record);
+				return await this.addOurPromise(member, inLinks, outLinks, record);
+			} break;
+			case RecordState.ourCommitNeeded: {
+				const modified = await this.addOurCommit(member, inLinks, outLinks, record);
+				if (isConsensus(modified.commits.filter(c => c.type === SignatureTypes.commit).length, getReferees(modified).length)) { // We completed the consensus
+					await this.resource.release(true, member, inLinks, outLinks, modified);
+				}
+				return modified;
+			} break;
+			default: {
+				if (!recordsEqual(record, prior)) {
+					if ((recordState === RecordState.consensus || recordState === RecordState.rejected)) {
+						await this.resource.release(recordState === RecordState.consensus, member, inLinks, outLinks, record);
+					}
+					return record;
+				}
+			}
 		}
 	}
 
