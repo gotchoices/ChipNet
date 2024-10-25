@@ -71,11 +71,7 @@ export class TrxParticipant {
 				return await this.addOurPromise(member, inLinks, outLinks, record);
 			}
 			case RecordState.ourCommitNeeded: {
-				const modified = await this.addOurCommitOrReject(member, inLinks, outLinks, record);
-				if (isConsensus(modified.commits.filter(c => c.type === SignatureTypes.commit).length, getReferees(modified).length)) { // We completed the consensus
-					await this.resource.release(true, member, inLinks, outLinks, modified);
-				}
-				return modified;
+				return await this.addOurCommitOrReject(member, inLinks, outLinks, record);
 			}
 			default: {
 				if (!recordsEqual(record, prior)) {
