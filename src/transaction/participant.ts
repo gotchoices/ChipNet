@@ -42,14 +42,18 @@ export class TrxParticipant {
 				await this.pushModified(running);
 				return;
 			}
+			let didAdvance = false;
 			while (running) {
 				const modified = await this.advanceState(ourMember, running, prior);
 				prior = running;
 				running = modified;
 				if (running) {
 					await this.state.setRecord(running);
-					await this.pushModified(running);
+					didAdvance = true;
 				}
+			}
+			if (didAdvance && prior) {
+				await this.pushModified(prior);
 			}
 		}
 		catch (err) {
@@ -65,14 +69,14 @@ export class TrxParticipant {
 			case RecordState.ourPromiseNeeded: {
 				await this.resource.promise(member, inLinks, outLinks, record);
 				return await this.addOurPromise(member, inLinks, outLinks, record);
-			} break;
+			}
 			case RecordState.ourCommitNeeded: {
-				const modified = await this.addOurCommit(member, inLinks, outLinks, record);
+				const modified = await this.addOurCommitOrReject(member, inLinks, outLinks, record);
 				if (isConsensus(modified.commits.filter(c => c.type === SignatureTypes.commit).length, getReferees(modified).length)) { // We completed the consensus
 					await this.resource.release(true, member, inLinks, outLinks, modified);
 				}
 				return modified;
-			} break;
+			}
 			default: {
 				if (!recordsEqual(record, prior)) {
 					if ((recordState === RecordState.consensus || recordState === RecordState.rejected)) {
@@ -113,12 +117,13 @@ export class TrxParticipant {
 	}
 
 	private async pushPeerRecord(address: Address, record: TrxRecord) {
-    try {
-		await this.updatePeer(address, record);
-    } catch (err) {
-      await this.state.logUpdateError(record, address, err);
-      return;
-    }
+		try {
+			await this.updatePeer(address, record);
+		} catch (err) {
+			await this.state.logUpdateError(record, address, err);
+			await this.state.logUpdateError(record, address, err);
+			return;
+		}
 		await this.state.setPeerRecord(address, record);
 	}
 
@@ -132,10 +137,14 @@ export class TrxParticipant {
 			.concat(Object.entries(record.topology.links).filter(([, l]) => addressesMatch(l.target, ourAddress)).map(([, l]) => l.source));
 	}
 
-	private async addOurCommit(member: Member, inLinks: TrxLink[], outLinks: TrxLink[], record: TrxRecord): Promise<TrxRecord> {
+	private async addOurCommitOrReject(member: Member, inLinks: TrxLink[], outLinks: TrxLink[], record: TrxRecord): Promise<TrxRecord> {
 		const approved = !this.cryptoHash.isExpired(record.transactionCode)
 			&& !this.cryptoHash.isExpired(record.sessionCode)
 			&& this.resource.shouldCommit ? (await this.resource.shouldCommit(member, inLinks, outLinks, record)) : true;
+		return await this.signCommit(approved, record);
+	}
+
+	private async signCommit(approved: boolean, record: TrxRecord) {
 		const sigType = approved ? SignatureTypes.commit : SignatureTypes.noCommit;
 		const digest = getCommitDigest(record, [sigType.toString()]);
 		const address = this.state.self.address;
