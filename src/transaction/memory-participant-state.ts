@@ -5,6 +5,7 @@ import { Address, IdentifiedMember } from "..";
 export class MemoryTrxParticipantState implements TrxParticipantState {
 	constructor (
 		public readonly self: IdentifiedMember,
+		public readonly recordSet?: (record: TrxRecord) => void,
 	) {
 	}
 
@@ -13,6 +14,7 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 
 	async setRecord(record: TrxRecord): Promise<void> {
 		this.records.set(record.transactionCode, record);
+		this.recordSet?.(record);
 	}
 
 	async getRecord(transactionCode: string): Promise<TrxRecord | undefined> {
