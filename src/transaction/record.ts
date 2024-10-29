@@ -1,8 +1,8 @@
 import { Address, addressesMatch } from "..";
 import { Topology } from "../topology";
 
-export type SignatureType = 1 | -1 | 2 | -2;
-export const SignatureTypes = { promise: 1, noPromise: -1, commit: 2, noCommit: -2 } as const;
+export type SignatureType = 'P' | 'NP' | 'C' | 'NC';
+export const SignatureTypes = { promise: 'P', noPromise: 'NP', commit: 'C', noCommit: 'NC' } as const;
 
 export interface Signature {
 	type: SignatureType; // SignatureType

@@ -5,27 +5,36 @@ import { Address, IdentifiedMember } from "..";
 export class MemoryTrxParticipantState implements TrxParticipantState {
 	constructor (
 		public readonly self: IdentifiedMember,
-		public readonly recordSet?: (record: TrxRecord) => void,
+		public readonly recordSaved?: (record: TrxRecord) => void,
+		public readonly tryLoadRecord?: (transactionCode: string) => Promise<TrxRecord | undefined>,
 	) {
 	}
 
 	private records: Map<string, TrxRecord> = new Map();
 	private peerRecords: Map<string, Map<string, TrxRecord>> = new Map();
+	private releasedTransactions: Set<string> = new Set();
 
-	async setRecord(record: TrxRecord): Promise<void> {
+	async saveRecord(record: TrxRecord): Promise<void> {
 		this.records.set(record.transactionCode, record);
-		this.recordSet?.(record);
+		this.recordSaved?.(record);
 	}
 
 	async getRecord(transactionCode: string): Promise<TrxRecord | undefined> {
-		return this.records.get(transactionCode);
+		let result = this.records.get(transactionCode);
+		if (!result && this.tryLoadRecord) {
+			result = await this.tryLoadRecord(transactionCode);
+			if (result) {
+				this.records.set(transactionCode, result);
+			}
+		}
+		return result;
 	}
 
 	async getPeerRecord(address: Address, transactionCode: string): Promise<TrxRecord | undefined> {
 		return this.peerRecords.get(JSON.stringify(address))?.get(transactionCode);
 	}
 
-	async setPeerRecord(address: Address, record: TrxRecord): Promise<void> {
+	async savePeerRecord(address: Address, record: TrxRecord): Promise<void> {
 		const addressKey = JSON.stringify(address);
 		const peer = this.peerRecords.get(addressKey);
 		if (peer) {
@@ -33,6 +42,18 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 		} else {
 			this.peerRecords.set(addressKey, new Map([[record.transactionCode, record]]));
 		}
+	}
+
+	async setIsReleased(transactionCode: string): Promise<void> {
+		this.releasedTransactions.add(transactionCode);
+	}
+
+	async getIsReleased(transactionCode: string): Promise<boolean> {
+		return this.releasedTransactions.has(transactionCode);
+	}
+
+	async logReleaseError(record: TrxRecord, err: unknown): Promise<void> {
+		console.error(`Error releasing transaction (${err}): ${JSON.stringify(record)}`);
 	}
 
 	async logInvalid(record: TrxRecord, err: unknown): Promise<void> {

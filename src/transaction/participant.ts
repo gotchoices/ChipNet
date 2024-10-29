@@ -9,8 +9,8 @@ import { Address, addressesMatch, findMembers } from "..";
 enum RecordState {
 	promising,
 	ourPromiseNeeded,
-	consensus,
 	ourCommitNeeded,
+	consensus,
 	rejected,
 	propagating,
 }
@@ -29,7 +29,7 @@ export class TrxParticipant {
 	public async update(record: TrxRecord, fromAddress?: Address): Promise<void> {
 		if (fromAddress) {
 			// TODO: if this came from a peer that we just updated, we might be getting older information than what we just sent; assume the union or be conservative?
-			await this.state.setPeerRecord(fromAddress, record);
+			await this.state.savePeerRecord(fromAddress, record);
 		}
 
 		// Load the prior known state of the record from state
@@ -48,7 +48,7 @@ export class TrxParticipant {
 				prior = running;
 				running = modified;
 				if (running) {
-					await this.state.setRecord(running);
+					await this.state.saveRecord(running);
 					didAdvance = true;
 				}
 			}
@@ -74,14 +74,25 @@ export class TrxParticipant {
 				return await this.addOurCommitOrReject(member, inLinks, outLinks, record);
 			}
 			default: {
+				if ((recordState === RecordState.consensus || recordState === RecordState.rejected) && !(await this.state.getIsReleased(record.transactionCode))) {
+					await this.releaseResource(recordState, member, inLinks, outLinks, record);
+				}
 				if (!recordsEqual(record, prior)) {
-					if ((recordState === RecordState.consensus || recordState === RecordState.rejected)) {
-						await this.resource.release(recordState === RecordState.consensus, member, inLinks, outLinks, record);
-					}
 					return record;
 				}
 			}
 		}
+	}
+
+	private async releaseResource(recordState: RecordState, member: Member, inLinks: TrxLink[], outLinks: TrxLink[], record: TrxRecord) {
+		try {
+			await this.resource.release(recordState === RecordState.consensus, member, inLinks, outLinks, record);
+		}
+		catch (err) {
+			void this.state.logReleaseError(record, err);
+			throw err;
+		}
+		await this.state.setIsReleased(record.transactionCode);
 	}
 
 	private async findOurMember(record: TrxRecord): Promise<{ member: Member, inLinks: TrxLink[], outLinks: TrxLink[] } | undefined> {
@@ -120,7 +131,7 @@ export class TrxParticipant {
 			await this.state.logUpdateError(record, address, err);
 			return;
 		}
-		await this.state.setPeerRecord(address, record);
+		await this.state.savePeerRecord(address, record);
 	}
 
 	private async reachablePeers(record: TrxRecord): Promise<Address[]> {
@@ -253,6 +264,7 @@ export class TrxParticipant {
 			return RecordState.ourCommitNeeded;
 		}
 
+		// We've reached consensus
 		const successfulCommits = record.commits.filter(c => c.type === SignatureTypes.commit);
 		if (isConsensus(successfulCommits.length, referees.length)) {
 			return RecordState.consensus;
