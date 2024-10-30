@@ -33,7 +33,7 @@ export class TrxParticipant {
 		}
 
 		// Load the prior known state of the record from state
-		let prior = await this.state.getRecord(record.transactionCode);
+		let prior = await this.state.getRecord(record);
 		try {
 			// TODO: if expired, still propagate (and sign as failed)
 			let running: TrxRecord | undefined = await this.validateAndMerge(prior, record);

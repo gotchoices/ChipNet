@@ -6,7 +6,7 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 	constructor (
 		public readonly self: IdentifiedMember,
 		public readonly recordSaved?: (record: TrxRecord) => void,
-		public readonly tryLoadRecord?: (transactionCode: string) => Promise<TrxRecord | undefined>,
+		public readonly tryLoadRecord?: (record: TrxRecord) => Promise<TrxRecord | undefined>,
 	) {
 	}
 
@@ -19,12 +19,12 @@ export class MemoryTrxParticipantState implements TrxParticipantState {
 		this.recordSaved?.(record);
 	}
 
-	async getRecord(transactionCode: string): Promise<TrxRecord | undefined> {
-		let result = this.records.get(transactionCode);
+	async getRecord(record: TrxRecord): Promise<TrxRecord | undefined> {
+		let result = this.records.get(record.transactionCode);
 		if (!result && this.tryLoadRecord) {
-			result = await this.tryLoadRecord(transactionCode);
+			result = await this.tryLoadRecord(record);
 			if (result) {
-				this.records.set(transactionCode, result);
+				this.records.set(record.transactionCode, result);
 			}
 		}
 		return result;

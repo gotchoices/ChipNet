@@ -5,7 +5,7 @@ export interface TrxParticipantState {
 	self: IdentifiedMember;
 
 	saveRecord(record: TrxRecord): Promise<void>;
-	getRecord(transactionCode: string): Promise<TrxRecord | undefined>;
+	getRecord(record: TrxRecord): Promise<TrxRecord | undefined>;
 
 	getPeerRecord(address: Address, transactionCode: string): Promise<TrxRecord | undefined>;
 	savePeerRecord(address: Address, record: TrxRecord): Promise<void>;
