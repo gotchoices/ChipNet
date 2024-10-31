@@ -5,6 +5,8 @@ import { recordsEqual, Signature, SignatureTypes, TrxRecord } from "./record";
 import * as crypto from 'crypto';
 import { TrxLink, TrxParticipantResource } from "./participant-resource";
 import { Address, addressesMatch, findMembers } from "..";
+import { deepEqual } from "../deep-equal";
+import { hashDeep } from "../hash-deep";
 
 enum RecordState {
 	promising,
@@ -37,23 +39,29 @@ export class TrxParticipant {
 		try {
 			// TODO: if expired, still propagate (and sign as failed)
 			let running: TrxRecord | undefined = await this.validateAndMerge(prior, record);
-			const ourMember = await this.findOurMember(running);
-			if (!ourMember) {	// We are not in the topology - just propagate
+			if (recordsEqual(running, prior)) {	// If no changes, just propagate
 				await this.pushModified(running);
-				return;
 			}
-			let didAdvance = false;
-			while (running) {
-				const modified = await this.advanceState(ourMember, running, prior);
-				prior = running;
-				running = modified;
-				if (running) {
-					await this.state.saveRecord(running);
-					didAdvance = true;
+			else {
+				await this.state.saveRecord(running);
+				const ourMember = await this.findOurMember(running);
+				if (!ourMember) {	// We are not in the topology - just propagate
+					await this.pushModified(running);
+					return;
 				}
-			}
-			if (didAdvance && prior) {
-				await this.pushModified(prior);
+				let didAdvance = false;
+				while (running) {
+					const modified = await this.advanceState(ourMember, running);
+					if (modified) {
+						await this.state.saveRecord(modified);
+						didAdvance = true;
+					}
+					prior = running;
+					running = modified;
+				}
+				if (didAdvance && prior) {
+					await this.pushModified(prior);
+				}
 			}
 		}
 		catch (err) {
@@ -62,7 +70,7 @@ export class TrxParticipant {
 		}
 	}
 
-	private async advanceState(ourMember: { member: Member; inLinks: TrxLink[]; outLinks: TrxLink[]; }, record: TrxRecord, prior: TrxRecord | undefined): Promise<TrxRecord | undefined> {
+	private async advanceState(ourMember: { member: Member; inLinks: TrxLink[]; outLinks: TrxLink[]; }, record: TrxRecord): Promise<TrxRecord | undefined> {
 		const { member, inLinks, outLinks } = ourMember;
 		const recordState = await this.getRecordState(record);
 		switch (recordState) {
@@ -76,9 +84,6 @@ export class TrxParticipant {
 			default: {
 				if ((recordState === RecordState.consensus || recordState === RecordState.rejected) && !(await this.state.getIsReleased(record.transactionCode))) {
 					await this.releaseResource(recordState, member, inLinks, outLinks, record);
-				}
-				if (!recordsEqual(record, prior)) {
-					return record;
 				}
 			}
 		}
@@ -189,8 +194,8 @@ export class TrxParticipant {
 	validateUpdate(prior: TrxRecord, record: TrxRecord) {
 		if (record.transactionCode != prior.transactionCode) throw new Error("Transaction code mismatch");
 		if (record.sessionCode != prior.sessionCode) throw new Error("Session code mismatch");
-		if (JSON.stringify(record.payload) != JSON.stringify(prior.payload)) throw new Error("Payload mismatch");
-		if (JSON.stringify(record.topology) != JSON.stringify(prior.topology)) throw new Error("Topology mismatch");
+		if (!deepEqual(record.payload, prior.payload)) throw new Error("Payload mismatch");
+		if (!deepEqual(record.topology, prior.topology)) throw new Error("Topology mismatch");
 	}
 
 	async validateNew(record: TrxRecord) {
@@ -295,8 +300,8 @@ function createDigest(trx: TrxRecord, additionalData: string[] = []) {
 	const hash = crypto.createHash('sha256');
 	hash.update(trx.transactionCode);
 	hash.update(trx.sessionCode);
-	hash.update(JSON.stringify(trx.payload));
-	hash.update(JSON.stringify(trx.topology));
+	hashDeep(hash, trx.payload);
+	hashDeep(hash, trx.topology);
 
 	additionalData.forEach(data => {
 		hash.update(data);
