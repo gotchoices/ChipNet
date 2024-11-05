@@ -49,17 +49,15 @@ export class TrxParticipant {
 					await this.pushModified(running);
 					return;
 				}
-				let didAdvance = false;
 				while (running) {
 					const modified = await this.advanceState(ourMember, running);
 					if (modified) {
 						await this.state.saveRecord(modified);
-						didAdvance = true;
 					}
 					prior = running;
 					running = modified;
 				}
-				if (didAdvance && prior) {
+				if (prior) {
 					await this.pushModified(prior);
 				}
 			}
